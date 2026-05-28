@@ -11,11 +11,22 @@ async function startServer() {
 
   app.use(express.json());
 
+  // CORS Middleware to allow static frontend on GitHub Pages/custom domains to communicate securely
+  app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // API Route: Mercado Pago Checkout Integration
   app.post("/api/checkout/mp", async (req, res) => {
     try {
-      const { paymentMethod, total, name, phone, email, storeName } = req.body;
-      const mpAccessToken = process.env.MP_ACCESS_TOKEN;
+      const { paymentMethod, total, name, phone, email, storeName, mpAccessToken: bodyToken } = req.body;
+      const mpAccessToken = bodyToken || process.env.MP_ACCESS_TOKEN;
 
       // Safe Fallback Layer: If Access Token is not set yet in Environment Variables, run high-fidelity simulation
       if (!mpAccessToken) {

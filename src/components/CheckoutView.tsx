@@ -48,6 +48,19 @@ interface CheckoutViewProps {
   onCloseModal: () => void;
 }
 
+const getApiUrl = (suffix: string): string => {
+  const hostname = window.location.hostname;
+  // If the app is run from GitHub Pages, or a custom domain outside of localhost/run.app,
+  // route requests dynamically to the running Cloud Run container backend to process live cards/Pix
+  if (
+    hostname.includes("github.io") || 
+    (!hostname.includes("run.app") && hostname !== "localhost" && hostname !== "127.0.0.1")
+  ) {
+    return `https://ais-pre-b4s6tdo2sj5w6cyewcd2gq-58351164655.us-east1.run.app${suffix}`;
+  }
+  return suffix;
+};
+
 export function CheckoutView({
   carrinho,
   config,
@@ -73,10 +86,11 @@ export function CheckoutView({
   const [paymentMethod, setPaymentMethod] = useState<"Pix" | "Cartão" | "Maquininha" | "">("");
   const [cardType, setCardType] = useState<"Débito" | "Crédito" | "">("");
   const [calculatingRoute, setCalculatingRoute] = useState(false);
+  const [hasAutoFilled, setHasAutoFilled] = useState(false);
 
   // Auto fill details if user profile exists and auto-calculate delivery fee
   useEffect(() => {
-    if (clientProfile) {
+    if (clientProfile && !hasAutoFilled) {
       setPhone(clientProfile.telefone);
       setName(clientProfile.nome);
       if (clientProfile.cep) setCep(clientProfile.cep);
@@ -84,6 +98,7 @@ export function CheckoutView({
       if (clientProfile.numero) setNumber(clientProfile.numero);
       if (clientProfile.bairro) setNeighborhood(clientProfile.bairro);
       setReference(clientProfile.referencia || "");
+      setHasAutoFilled(true);
 
       // Auto-calculate delivery fee if address is complete, deliveryType is "entrega" and deliveryFee is not yet calculated
       if (
@@ -103,7 +118,7 @@ export function CheckoutView({
         });
       }
     }
-  }, [clientProfile, deliveryType, deliveryFee, onCalculateRoute]);
+  }, [clientProfile, hasAutoFilled, deliveryType, deliveryFee, onCalculateRoute]);
 
   useEffect(() => {
     const handler = () => {
@@ -201,44 +216,32 @@ export function CheckoutView({
           
           showToast("Aviso: Chave simulação activa (Sem Token de Acesso)", "success");
         } else {
-          // Real integration logic with Mercado Pago API directly from browser
-          const uniqueKey = "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
-          const names = name.trim().split(" ");
-          const firstName = names[0] || "Cliente";
-          const lastName = names.slice(1).join(" ") || "Enki";
-
-          const mpRes = await fetch("https://api.mercadopago.com/v1/payments", {
+          // Real integration logic with backend sandbox/production router to bypass CORS
+          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${mpAccessToken}`,
-              "X-Idempotency-Key": uniqueKey,
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
-              description: `Pedido ${name} - ${config.storeName || "Enki Burger"}`,
-              installments: 1,
-              payment_method_id: "pix",
-              payer: {
-                email: "compras@enkiburger.com.br",
-                first_name: firstName,
-                last_name: lastName,
-                phone: {
-                  number: phone ? phone.replace(/\D/g, "") : "11999999999"
-                }
-              },
-              transaction_amount: Number(total)
+              paymentMethod: "Pix",
+              total: Number(total),
+              name,
+              phone,
+              email: "compras@enkiburger.com.br",
+              storeName: config.storeName || "Enki Burger",
+              mpAccessToken
             })
           });
 
           if (!mpRes.ok) {
             const errData = await mpRes.json();
             console.error("Mercado Pago API Pix Error:", errData);
-            throw new Error(errData.message || "Erro de autorização ou saldo no Mercado Pago.");
+            throw new Error(errData.error || "Erro ao processar Pix através do servidor.");
           }
 
           const data = await mpRes.json();
-          pId = `MP-${data.id}`;
-          pixKey = data.point_of_interaction?.transaction_data?.qr_code;
+          pId = data.paymentId;
+          pixKey = data.pixKey;
         }
 
         const handleCopyKey = () => {
@@ -341,46 +344,32 @@ export function CheckoutView({
           isSimulation = true;
           pId = "MP-PREF-" + Math.floor(100000 + Math.random() * 900000);
         } else {
-          // Real Mercado Pago Hosted Preference Checkout directly from browser!
-          const uniqueKey = "enki-card-" + Date.now();
-          const mpRes = await fetch("https://api.mercadopago.com/v1/preferences", {
+          // Real Mercado Pago Hosted Preference Checkout routed securely through Express backend
+          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${mpAccessToken}`,
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
-              items: [
-                {
-                  id: uniqueKey,
-                  title: `Pedido ${name} - ${config.storeName || "Enki Burger"}`,
-                  quantity: 1,
-                  currency_id: "BRL",
-                  unit_price: Number(total)
-                }
-              ],
-              payer: {
-                name,
-                email: "compras@enkiburger.com.br"
-              },
-              back_urls: {
-                success: window.location.origin,
-                failure: window.location.origin,
-                pending: window.location.origin
-              },
-              auto_return: "approved"
+              paymentMethod: "Cartão",
+              total: Number(total),
+              name,
+              phone,
+              email: "compras@enkiburger.com.br",
+              storeName: config.storeName || "Enki Burger",
+              mpAccessToken
             })
           });
 
           if (!mpRes.ok) {
             const errData = await mpRes.json();
             console.error("Mercado Pago API Preference Error:", errData);
-            throw new Error(errData.message || "Erro ao gerar link de pagamento.");
+            throw new Error(errData.error || "Erro ao gerar link de pagamento seguro.");
           }
 
           const data = await mpRes.json();
-          pId = `MP-PREF-${data.id}`;
-          initPoint = data.init_point;
+          pId = data.paymentId;
+          initPoint = data.initPoint;
         }
 
         if (isSimulation) {
