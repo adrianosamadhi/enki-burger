@@ -739,7 +739,7 @@ export function AdminPanel({
 
       {/* Tab 3: Configuration options */}
       {activeTab === "config" && (
-        <div className="bg-white rounded-3xl border border-stone-100 p-6 shadow-sm space-y-5 text-left">
+        <div className="bg-white rounded-3xl border border-stone-100 p-4 sm:p-5 shadow-sm space-y-5 text-left">
           <div className="flex justify-between items-center pb-2 border-b">
             <h3 className="text-sm font-bold flex items-center gap-2 font-mono">
               <Cpu className="w-4 h-4 text-[#FF3D00]" /> Configurações de Integração

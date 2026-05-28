@@ -36,7 +36,7 @@ export function CartSidebar({
   const grandTotal = subtotal + actualFreight;
 
   return (
-    <div className="hidden lg:block lg:col-span-4 sticky top-28 bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm space-y-6 select-none">
+    <div className="hidden lg:block lg:col-span-4 sticky top-28 bg-white border border-stone-100 rounded-[2rem] p-4 sm:p-5 shadow-sm space-y-6 select-none">
       <div className="flex justify-between items-center border-b pb-4">
         <h3 className="text-base font-black text-neutral-950 flex items-center gap-2">
           <ShoppingBag className="w-5 h-5 text-[#FF3D00]" /> Seu Pedido

@@ -1152,7 +1152,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
             
             {/* White label geolocation layout banner */}
             {view === "menu" && (
-              <div id="hero-banner" className="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left">
+              <div id="hero-banner" className="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-stone-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left">
                 <div>
                   <p className="text-[10px] text-stone-400 font-extrabold uppercase tracking-widest mb-1">
                     Localização Oficial
