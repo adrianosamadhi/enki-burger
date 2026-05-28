@@ -828,29 +828,29 @@ export function CheckoutView({
         <p className="text-xs text-stone-500 leading-normal font-sans">
           Como você deseja receber o seu pedido? Entregamos até <strong>3km</strong> ou você pode retirar conosco!
         </p>
-        <div className="grid grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => onDeliveryTypeChange("entrega")}
-            className={`border-2 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
+            className={`border-2 rounded-xl p-2.5 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
               deliveryType === "entrega"
                 ? "border-[#FF3D00] bg-red-50/10 text-[#FF3D00]"
                 : "border-stone-200 text-stone-600 hover:border-stone-300"
             }`}
           >
-            <Truck className="w-5 h-5" />
-            <span className="text-xs font-bold font-sans">Entrega no Endereço</span>
+            <Truck className="w-4 h-4" />
+            <span className="text-[11px] font-bold font-sans">Entrega no Endereço</span>
           </button>
 
           <button
             onClick={() => onDeliveryTypeChange("retirada")}
-            className={`border-2 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
+            className={`border-2 rounded-xl p-2.5 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
               deliveryType === "retirada"
                 ? "border-[#FF3D00] bg-red-50/10 text-[#FF3D00]"
                 : "border-stone-200 text-stone-600 hover:border-stone-300"
             }`}
           >
-            <ShoppingBag className="w-5 h-5" />
-            <span className="text-xs font-bold font-sans">Retirar na Loja</span>
+            <ShoppingBag className="w-4 h-4" />
+            <span className="text-[11px] font-bold font-sans">Retirar na Loja</span>
           </button>
         </div>
       </div>
@@ -989,32 +989,32 @@ export function CheckoutView({
         <h3 className="text-sm font-bold text-neutral-950 flex items-center gap-2 font-mono">
           <CreditCard className="w-4 h-4 text-[#FF3D00]" /> Escolha como deseja pagar
         </h3>
-        <div className="grid grid-cols-3 gap-3.5 select-none">
+        <div className="grid grid-cols-3 gap-2 select-none">
           <button
             onClick={() => {
               setPaymentMethod("Pix");
               setCardType("");
             }}
-            className={`border-2 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
+            className={`border-2 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer ${
               paymentMethod === "Pix"
                 ? "border-[#FF3D00] bg-red-50/10 text-[#FF3D00]"
                 : "border-stone-200 text-stone-600 hover:border-stone-300"
             }`}
           >
-            <QrCode className="w-6 h-6" />
-            <span className="text-xs font-bold">Pix</span>
+            <QrCode className="w-5 h-5" />
+            <span className="text-[11px] font-bold">Pix</span>
           </button>
 
           <button
             onClick={() => setPaymentMethod("Cartão")}
-            className={`border-2 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
+            className={`border-2 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer ${
               paymentMethod === "Cartão"
                 ? "border-[#FF3D00] bg-red-50/10 text-[#FF3D00]"
                 : "border-stone-200 text-stone-600 hover:border-stone-300"
             }`}
           >
-            <CreditCard className="w-6 h-6" />
-            <span className="text-xs font-bold">Cartão</span>
+            <CreditCard className="w-5 h-5" />
+            <span className="text-[11px] font-bold">Cartão</span>
           </button>
 
           <button
@@ -1022,14 +1022,14 @@ export function CheckoutView({
               setPaymentMethod("Maquininha");
               setCardType("");
             }}
-            className={`border-2 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
+            className={`border-2 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer ${
               paymentMethod === "Maquininha"
                 ? "border-[#FF3D00] bg-red-50/10 text-[#FF3D00]"
                 : "border-stone-200 text-stone-600 hover:border-stone-300"
             }`}
           >
-            <Smartphone className="w-6 h-6" />
-            <span className="text-xs font-bold">Maquininha</span>
+            <Smartphone className="w-5 h-5" />
+            <span className="text-[11px] font-bold">Maquininha</span>
           </button>
         </div>
 
