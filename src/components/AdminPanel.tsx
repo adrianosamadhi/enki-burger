@@ -42,6 +42,7 @@ interface AdminPanelProps {
 interface ProductModalFormProps {
   product: Product | null;
   adicionais: Addon[];
+  existingCategories: string[];
   onSave: (updatedProduct: Product) => void;
   onClose: () => void;
   showToast: (msg: string, type: "success" | "error") => void;
@@ -50,13 +51,19 @@ interface ProductModalFormProps {
 export function ProductModalForm({
   product,
   adicionais,
+  existingCategories,
   onSave,
   onClose,
   showToast,
 }: ProductModalFormProps) {
   const [name, setName] = useState(product ? product.nome : "");
   const [price, setPrice] = useState(product ? product.preco : 0);
-  const [category, setCategory] = useState(product ? product.categoria : "Burgers Artesanais");
+  
+  const initialCat = product ? product.categoria : existingCategories.length > 0 ? existingCategories[0] : "Burgers Artesanais";
+  const catIsExisting = existingCategories.includes(initialCat);
+  const [categorySelect, setCategorySelect] = useState(catIsExisting ? initialCat : "Nova Categoria...");
+  const [categoryInput, setCategoryInput] = useState(catIsExisting ? "" : initialCat);
+
   const [desc, setDesc] = useState(product ? product.descricao : "");
   const [img, setImg] = useState(product ? product.img : "");
   const [selectedAddons, setSelectedAddons] = useState<string[]>(
@@ -86,12 +93,18 @@ export function ProductModalForm({
       showToast("Preencha o nome e um preço válido.", "error");
       return;
     }
+    const finalCategory = categorySelect === "Nova Categoria..." ? categoryInput.trim() : categorySelect;
+    if (!finalCategory) {
+      showToast("Preencha ou selecione uma categoria.", "error");
+      return;
+    }
+    
     onSave({
       id: product ? product.id : "p_" + Date.now(),
       nome: name,
       preco: Number(price),
       descricao: desc,
-      categoria: category,
+      categoria: finalCategory,
       img: img || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80",
       adicionaisPermitidos: selectedAddons,
     });
@@ -130,20 +143,30 @@ export function ProductModalForm({
         <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
           Categoria
         </label>
-        <input
-          type="text"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          list="categoriesList"
-          placeholder="Ex: Burgers Artesanais, Bebidas..."
-          className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none bg-white focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00]"
-        />
-        <datalist id="categoriesList">
-          <option value="Burgers Artesanais" />
-          <option value="Porções Crocantes" />
-          <option value="Bebidas e Sucos" />
-          <option value="Sobremesas" />
-        </datalist>
+        <select
+          value={categorySelect}
+          onChange={(e) => setCategorySelect(e.target.value)}
+          className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none bg-white focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00] mb-2"
+        >
+          {existingCategories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+          <option value="Nova Categoria...">+ Nova Categoria...</option>
+        </select>
+        
+        {categorySelect === "Nova Categoria..." && (
+          <input
+            type="text"
+            required
+            value={categoryInput}
+            onChange={(e) => setCategoryInput(e.target.value)}
+            placeholder="Digite o nome da nova categoria"
+            className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none bg-white focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00] animate-in slide-in-from-top-1 opacity-0 fade-in duration-200"
+            style={{ animationFillMode: "forwards" }}
+          />
+        )}
       </div>
       <div>
         <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
@@ -385,10 +408,12 @@ export function AdminPanel({
   };
 
   const handleOpenProductModal = (p: Product | null) => {
+    const categories = Array.from(new Set(produtos.map(prod => prod.categoria))).filter(Boolean);
     const body = (
       <ProductModalForm
         product={p}
         adicionais={adicionais}
+        existingCategories={categories}
         onSave={(updatedProduct) => {
           onSaveProduct(updatedProduct);
           onCloseModal();
