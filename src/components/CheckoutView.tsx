@@ -337,6 +337,13 @@ export function CheckoutView({
                 <Copy className="w-3.5 h-3.5" /> Copiar Código
               </button>
             </div>
+            
+            <div className="mt-4 flex flex-col items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-stone-300 border-t-blue-600 rounded-full animate-spin" />
+              <p className="text-[11px] font-bold text-stone-600 animate-pulse">
+                Aguardando confirmação do pagamento...
+              </p>
+            </div>
           </div>
         );
 
@@ -405,50 +412,10 @@ export function CheckoutView({
                 stopPolling();
                 onCloseModal();
               }}
-              className="px-4 py-2 font-bold text-xs text-stone-500 hover:text-stone-700 font-sans cursor-pointer"
+              className="px-4 py-3 font-bold text-xs text-stone-500 hover:text-stone-700 bg-stone-100/50 hover:bg-stone-100 rounded-xl transition-colors font-sans w-full"
             >
-              Cancelar
+              Cancelar Pedido
             </button>
-              <button
-                onClick={async () => {
-                  if (isSimulation) {
-                    stopPolling();
-                    onCloseModal();
-                    onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                  } else {
-                    showToast("Verificando pagamento no Mercado Pago...", "success");
-                    let approved = false;
-                    if (mpAccessToken) {
-                        try {
-                            const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent(`https://api.mercadopago.com/v1/payments/${pId}`);
-                            const s = await fetch(mpApiUrl, { headers: { "Authorization": `Bearer ${mpAccessToken}` } });
-                            const sj = await s.json();
-                            if (sj.status === "approved" || sj.status === "authorized") approved = true;
-                        } catch(e) {}
-                    }
-                    if (!approved) {
-                        try {
-                          const s = await fetch(getApiUrl(`/api/checkout/mp/status/${pId}`));
-                          const sj = await s.json();
-                          if (sj.status === "approved" || sj.status === "authorized") {
-                             approved = true;
-                          }
-                        } catch(e) {}
-                    }
-
-                    if (approved) {
-                        stopPolling();
-                        onCloseModal();
-                        onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                    } else {
-                        showToast("Pagamento ainda não confirmado. Aguarde ou verifique novamente.", "error");
-                    }
-                  }
-                }}
-                className="bg-[#FF3D00] hover:bg-[#E03600] text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer font-sans w-full mt-2"
-              >
-                <Check className="w-3.5 h-3.5" /> Enviar Pedido (Apenas após pagar)
-              </button>
           </React.Fragment>
         );
 
