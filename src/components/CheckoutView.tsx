@@ -235,16 +235,58 @@ export function CheckoutView({
           pixKey = data.pixKey;
           isSimulation = data.isSimulation;
         } catch (networkErr: any) {
-          if (networkErr.message && (networkErr.message.includes("Failed to fetch") || networkErr.message.includes("NetworkError"))) {
+          // If backend fetch fails (e.g., Github Pages static site), try direct MP API via Proxy
+          console.warn("Backend indisponível, tentando integração direta via proxy com MP...", networkErr);
+          
+          if (mpAccessToken) {
+            try {
+              const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.mercadopago.com/v1/payments");
+              const names = name.trim().split(" ");
+              const pixRes = await fetch(mpApiUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${mpAccessToken}`,
+                  "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
+                },
+                body: JSON.stringify({
+                  transaction_amount: Number(Number(total).toFixed(2)),
+                  description: `Compra - ${config.storeName || "Enki Burger"}`,
+                  payment_method_id: "pix",
+                  payer: {
+                    email: "compras@enkiburger.com.br",
+                    first_name: names[0] || "Cliente",
+                    last_name: names.slice(1).join(" ") || "Enki"
+                  }
+                })
+              });
+              
+              if (pixRes.ok) {
+                const pixData = await pixRes.json();
+                pId = pixData.id;
+                pixKey = pixData.point_of_interaction?.transaction_data?.qr_code;
+                isSimulation = false; // Real payment!
+              } else {
+                throw new Error("Direct proxy fetch failed");
+              }
+            } catch (proxyErr) {
+              console.error("Proxy integration failed", proxyErr);
+              // Fallback to static simulation
+              isSimulation = true;
+              pId = "MP-GH-" + Math.floor(100000 + Math.random() * 900000);
+              const payloadStore = (config.storeName || "Enki Burger").substring(0, 15).toUpperCase();
+              const cleanStore = encodeURIComponent(payloadStore).replace(/%[0-9A-F]{2}/g, "");
+              const formattedTotal = Number(total).toFixed(2);
+              pixKey = `00020126580014BR.GOV.BCBC.PIX0136e9ff97-ad20-4e2a-b6b8-2ea9c98ef2e55204000053039865405${formattedTotal}5802BR5911${cleanStore.substring(0, 10)}6009SAOPAULO62070503***6304CAFE`;
+            }
+          } else {
              isSimulation = true;
              pId = "MP-GH-" + Math.floor(100000 + Math.random() * 900000);
              const payloadStore = (config.storeName || "Enki Burger").substring(0, 15).toUpperCase();
              const cleanStore = encodeURIComponent(payloadStore).replace(/%[0-9A-F]{2}/g, "");
              const formattedTotal = Number(total).toFixed(2);
              pixKey = `00020126580014BR.GOV.BCBC.PIX0136e9ff97-ad20-4e2a-b6b8-2ea9c98ef2e55204000053039865405${formattedTotal}5802BR5911${cleanStore.substring(0, 10)}6009SAOPAULO62070503***6304CAFE`;
-             showToast("Modo Estático Ativo. API não suportada no GitHub Pages, simulando...", "success");
-          } else {
-             throw networkErr;
+             showToast("Modo Estático Ativo. Sem Token de Acesso.", "success");
           }
         }
 
@@ -378,12 +420,51 @@ export function CheckoutView({
           initPoint = data.initPoint;
           isSimulation = data.isSimulation;
         } catch (networkErr: any) {
-          if (networkErr.message && (networkErr.message.includes("Failed to fetch") || networkErr.message.includes("NetworkError"))) {
+          console.warn("Backend indisponível, tentando integração direta de Card via proxy MP...", networkErr);
+          
+          if (mpAccessToken) {
+            try {
+              const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.mercadopago.com/checkout/preferences");
+              
+              const prefRes = await fetch(mpApiUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${mpAccessToken}`
+                },
+                body: JSON.stringify({
+                  items: [
+                    {
+                      title: `Compra - ${config.storeName || "Enki Burger"}`,
+                      description: "Pedido online",
+                      quantity: 1,
+                      currency_id: "BRL",
+                      unit_price: Number(Number(total).toFixed(2))
+                    }
+                  ],
+                  payer: {
+                    email: "compras@enkiburger.com.br"
+                  }
+                })
+              });
+              
+              if (prefRes.ok) {
+                const prefData = await prefRes.json();
+                pId = prefData.id;
+                initPoint = prefData.init_point;
+                isSimulation = false;
+              } else {
+                throw new Error("Direct proxy fetch failed");
+              }
+            } catch (proxyErr) {
+              console.error("Proxy integration failed", proxyErr);
+              isSimulation = true;
+              pId = "MP-PREF-" + Math.floor(100000 + Math.random() * 900000);
+            }
+          } else {
              isSimulation = true;
              pId = "MP-PREF-" + Math.floor(100000 + Math.random() * 900000);
-             showToast("Modo Estático Ativo. API não suportada no GitHub Pages, simulando...", "success");
-          } else {
-             throw networkErr;
+             showToast("Modo Estático Ativo. Sem Token de Acesso.", "success");
           }
         }
 

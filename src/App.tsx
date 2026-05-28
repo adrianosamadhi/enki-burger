@@ -1119,13 +1119,13 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-[2rem] max-w-lg md:max-w-xl w-full p-6 md:p-8 shadow-2xl border border-stone-100 animate-in zoom-in-95 duration-200 cursor-default max-h-[92vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-[2rem] max-w-[400px] md:max-w-md w-full p-4 md:p-5 shadow-xl border border-stone-100 animate-in zoom-in-95 duration-200 cursor-default max-h-[92vh] flex flex-col overflow-hidden"
           >
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-neutral-400 mb-2 font-mono">{generalModal.title}</h3>
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-neutral-400 mb-1 font-mono">{generalModal.title}</h3>
             <div className="text-sm text-[#FF3D00] mb-2 font-sans flex items-center gap-1 block">
-              <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest font-mono select-none block">DICA: Toque fora ou arraste ou pressione ESC para fechar</span>
+              <span className="text-[9px] text-stone-400 font-bold uppercase tracking-widest font-mono select-none block">DICA: Toque fora ou pressione ESC para fechar</span>
             </div>
-            <div className="text-sm text-stone-600 mb-4 overflow-y-auto pr-1">
+            <div className="text-sm text-stone-600 mb-3 overflow-y-auto pr-1">
               {generalModal.body}
             </div>
             {generalModal.actions && (
