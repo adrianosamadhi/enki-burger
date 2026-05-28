@@ -1733,8 +1733,14 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
               value={adminPasswordInput}
               onChange={(e) => setAdminPasswordInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdminVerify()}
+              onClick={() => {
+                if (adminPasswordInput && adminPasswordInput !== "") {
+                  setAdminPasswordInput("");
+                }
+              }}
               className="w-full bg-stone-50 border p-3.5 rounded-xl text-center font-extrabold tracking-widest focus:outline-none focus:border-[#FF3D00]"
               placeholder="••••••••"
+              autoComplete="new-password"
               autoFocus
             />
             <div className="flex justify-end gap-3 mt-5 pb-1">
