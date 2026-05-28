@@ -56,7 +56,7 @@ export function ProductModalForm({
 }: ProductModalFormProps) {
   const [name, setName] = useState(product ? product.nome : "");
   const [price, setPrice] = useState(product ? product.preco : 0);
-  const [category, setCategory] = useState(product ? product.categoria : "burgers");
+  const [category, setCategory] = useState(product ? product.categoria : "Burgers Artesanais");
   const [desc, setDesc] = useState(product ? product.descricao : "");
   const [img, setImg] = useState(product ? product.img : "");
   const [selectedAddons, setSelectedAddons] = useState<string[]>(
@@ -130,15 +130,20 @@ export function ProductModalForm({
         <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
           Categoria
         </label>
-        <select
+        <input
+          type="text"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none bg-white cursor-pointer focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00]"
-        >
-          <option value="burgers">Burgers Artesanais</option>
-          <option value="porcoes">Porções Crocantes</option>
-          <option value="bebidas">Bebidas e Sucos</option>
-        </select>
+          list="categoriesList"
+          placeholder="Ex: Burgers Artesanais, Bebidas..."
+          className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none bg-white focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00]"
+        />
+        <datalist id="categoriesList">
+          <option value="Burgers Artesanais" />
+          <option value="Porções Crocantes" />
+          <option value="Bebidas e Sucos" />
+          <option value="Sobremesas" />
+        </datalist>
       </div>
       <div>
         <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">

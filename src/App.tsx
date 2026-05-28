@@ -1143,7 +1143,12 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
         config={config}
         clientProfile={clientProfile}
         onProfileClick={handleProfileButtonClick}
-        onLogoClick={() => setView("menu")}
+        onLogoClick={() => {
+          setView("menu");
+          if (window.location.hash) {
+            window.history.pushState("", document.title, window.location.pathname + window.location.search);
+          }
+        }}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -1185,36 +1190,19 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                   >
                     🍔 Todos os Itens
                   </button>
-                  <button
-                    onClick={() => setActiveCategory("burgers")}
-                    className={`px-5 py-3 rounded-full text-xs font-bold transition whitespace-nowrap active:scale-95 cursor-pointer ${
-                      activeCategory === "burgers"
-                        ? "bg-black text-white shadow-md"
-                        : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                    }`}
-                  >
-                    Burgers Artesanais
-                  </button>
-                  <button
-                    onClick={() => setActiveCategory("porcoes")}
-                    className={`px-5 py-3 rounded-full text-xs font-bold transition whitespace-nowrap active:scale-95 cursor-pointer ${
-                      activeCategory === "porcoes"
-                        ? "bg-black text-white shadow-md"
-                        : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                    }`}
-                  >
-                    Porções Crocantes
-                  </button>
-                  <button
-                    onClick={() => setActiveCategory("bebidas")}
-                    className={`px-5 py-3 rounded-full text-xs font-bold transition whitespace-nowrap active:scale-95 cursor-pointer ${
-                      activeCategory === "bebidas"
-                        ? "bg-black text-white shadow-md"
-                        : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                    }`}
-                  >
-                    Bebidas e Sucos
-                  </button>
+                  {Array.from(new Set(produtos.map(p => p.categoria))).filter(Boolean).map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveCategory(cat)}
+                      className={`px-5 py-3 rounded-full text-xs font-bold capitalize transition whitespace-nowrap active:scale-95 cursor-pointer ${
+                        activeCategory === cat
+                          ? "bg-black text-white shadow-md"
+                          : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Search banner and visual settings */}
