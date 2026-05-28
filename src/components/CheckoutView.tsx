@@ -74,7 +74,7 @@ export function CheckoutView({
   const [cardType, setCardType] = useState<"Débito" | "Crédito" | "">("");
   const [calculatingRoute, setCalculatingRoute] = useState(false);
 
-  // Auto fill details if user profile exists
+  // Auto fill details if user profile exists and auto-calculate delivery fee
   useEffect(() => {
     if (clientProfile) {
       setPhone(clientProfile.telefone);
@@ -84,8 +84,26 @@ export function CheckoutView({
       if (clientProfile.numero) setNumber(clientProfile.numero);
       if (clientProfile.bairro) setNeighborhood(clientProfile.bairro);
       setReference(clientProfile.referencia || "");
+
+      // Auto-calculate delivery fee if address is complete, deliveryType is "entrega" and deliveryFee is not yet calculated
+      if (
+        clientProfile.rua &&
+        clientProfile.numero &&
+        deliveryType === "entrega" &&
+        deliveryFee === null
+      ) {
+        setCalculatingRoute(true);
+        onCalculateRoute(
+          clientProfile.rua,
+          clientProfile.numero,
+          clientProfile.bairro || "",
+          clientProfile.cep || ""
+        ).finally(() => {
+          setCalculatingRoute(false);
+        });
+      }
     }
-  }, [clientProfile]);
+  }, [clientProfile, deliveryType, deliveryFee, onCalculateRoute]);
 
   useEffect(() => {
     const handler = () => {
