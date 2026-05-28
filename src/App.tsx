@@ -48,6 +48,21 @@ export default function App() {
     const saved = safeStorage.getItem("cardapio_config");
     let parsed = saved ? JSON.parse(saved) : { ...DEFAULT_STORE_CONFIG };
     
+    // Auto-migrate/heal supabase config
+    let updatedConfig = false;
+    if (!parsed.supabaseUrl || parsed.supabaseUrl === "") {
+      parsed.supabaseUrl = DEFAULT_STORE_CONFIG.supabaseUrl;
+      updatedConfig = true;
+    }
+    if (!parsed.supabaseKey || parsed.supabaseKey === "") {
+      parsed.supabaseKey = DEFAULT_STORE_CONFIG.supabaseKey;
+      updatedConfig = true;
+    }
+    if (parsed.mpPubKey && parsed.mpPubKey.includes("sb_publishable")) {
+      parsed.mpPubKey = "";
+      updatedConfig = true;
+    }
+
     // Auto-migrate/heal the specific case where the store address is updated but GPS pointers are legacy
     if (
       (parsed.storeAddress === "R. Luis de Oliveira Bulhões, 564" || parsed.storeAddress === "Ruan Luis de Oliveira Bulhões, 564" || parsed.storeAddress === "R. Luis de Oliveira Bulhões, 564 - Vila Albertina" || parsed.storeAddress === "Rua Luis de Oliveira Bulhões, 564") &&
@@ -56,6 +71,10 @@ export default function App() {
     ) {
       parsed.storeLat = "-23.4477784";
       parsed.storeLon = "-46.6076214";
+      updatedConfig = true;
+    }
+    
+    if (updatedConfig) {
       safeStorage.setItem("cardapio_config", JSON.stringify(parsed));
     }
     return parsed;
@@ -321,7 +340,7 @@ export default function App() {
           supabaseKey: configData.supabase_key || config.supabaseKey || "",
           ifoodBase: Number(configData.ifood_base) || config.ifoodBase,
           ifoodKm: Number(configData.ifood_km) || config.ifoodKm,
-          mpPubKey: configData.mp_pub_key || config.mpPubKey || "",
+          mpPubKey: (configData.mp_pub_key && configData.mp_pub_key.includes("sb_publishable")) ? "" : (configData.mp_pub_key || config.mpPubKey || ""),
           mpAccessToken: configData.mp_access_token || config.mpAccessToken || "",
           storeName: configData.store_name || config.storeName,
           storeLogoUrl: configData.store_logo_url || config.storeLogoUrl || "",
@@ -1733,6 +1752,11 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
               value={adminPasswordInput}
               onChange={(e) => setAdminPasswordInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdminVerify()}
+              onFocus={() => {
+                if (adminPasswordInput && adminPasswordInput !== "") {
+                  setAdminPasswordInput("");
+                }
+              }}
               onClick={() => {
                 if (adminPasswordInput && adminPasswordInput !== "") {
                   setAdminPasswordInput("");

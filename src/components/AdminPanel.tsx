@@ -423,7 +423,7 @@ export function AdminPanel({
       />
     );
 
-    onShowModal(p ? "Editar Hambúrguer" : "Novo Item do Cardápio", body, null);
+    onShowModal(p ? "Editar Hambúrguer" : "Novo Produto / Categoria", body, null);
   };
 
   const handleOpenAddonModal = (a: Addon | null) => {
@@ -671,7 +671,7 @@ export function AdminPanel({
                   onClick={() => handleOpenProductModal(null)}
                   className="bg-[#FF3D00] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm hover:bg-[#E03600] transition flex items-center gap-1.5 cursor-pointer font-sans"
                 >
-                  <Plus className="w-4 h-4" /> Novo Item
+                  <Plus className="w-4 h-4" /> Novo Produto / Categoria
                 </button>
               </div>
 

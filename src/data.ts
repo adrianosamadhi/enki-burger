@@ -58,10 +58,10 @@ export const DEFAULT_ADDONS: Addon[] = [
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
   whatsapp: "5511975372504",
   supabaseUrl: "https://amylompetctxeaeyioig.supabase.co",
-  supabaseKey: "",
+  supabaseKey: "sb_publishable_-i3Gye2VCW3W-LZFcksVaw_CA095Mhm",
   ifoodBase: 7.90,
   ifoodKm: 1.80,
-  mpPubKey: "sb_publishable_-i3Gye2VCW3W-LZFcksVaw_CA095Mhm",
+  mpPubKey: "",
   storeName: "Enki Burger",
   storeLogoUrl: "",
   storeAddress: "R. Luis de Oliveira Bulhões, 564",
