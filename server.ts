@@ -149,6 +149,31 @@ async function startServer() {
     }
   });
 
+  // API Route: Check payment status
+  app.get("/api/checkout/mp/status/:id", async (req, res) => {
+    try {
+      const paymentId = req.params.id.replace("MP-", ""); // remove MP- prefix if any
+      const mpAccessToken = process.env.MP_ACCESS_TOKEN || req.headers.authorization?.replace("Bearer ", "");
+      if (!mpAccessToken) {
+        return res.status(400).json({ status: "simulation" });
+      }
+
+      const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${mpAccessToken}`
+        }
+      });
+      if (!mpRes.ok) {
+        return res.status(400).json({ error: "Not found" });
+      }
+      const data = await mpRes.json();
+      return res.json({ status: data.status }); // 'approved', 'pending', etc.
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   // Vite development vs production pipeline middleware setup
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

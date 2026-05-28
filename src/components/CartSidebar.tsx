@@ -11,6 +11,7 @@ import { formatBRL, getCartItemTotalPrice } from "../utils";
 interface CartSidebarProps {
   carrinho: Record<string, CartItem>;
   deliveryFee: number | null;
+  deliveryType?: "entrega" | "retirada";
   onIncrease: (cartKey: string) => void;
   onDecrease: (cartKey: string) => void;
   onAdvance: () => void;
@@ -21,6 +22,7 @@ interface CartSidebarProps {
 export function CartSidebar({
   carrinho,
   deliveryFee,
+  deliveryType = "entrega",
   onIncrease,
   onDecrease,
   onAdvance,
@@ -30,7 +32,8 @@ export function CartSidebar({
   const items = Object.values(carrinho);
   const count = items.reduce((acc, item) => acc + item.qtd, 0);
   const subtotal = items.reduce((acc, item) => acc + getCartItemTotalPrice(item), 0);
-  const grandTotal = subtotal + (deliveryFee || 0);
+  const actualFreight = deliveryType === "retirada" ? 0 : (deliveryFee || 0);
+  const grandTotal = subtotal + actualFreight;
 
   return (
     <div className="hidden lg:block lg:col-span-4 sticky top-28 bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm space-y-6 select-none">
@@ -165,7 +168,7 @@ export function CartSidebar({
             <div className="flex justify-between text-xs text-stone-500">
               <span>Taxa de Entrega</span>
               <span className="font-bold text-neutral-950">
-                {deliveryFee !== null ? formatBRL(deliveryFee) : "Consulte..."}
+                {deliveryType === "retirada" ? "Grátis (Retirada)" : (deliveryFee !== null ? formatBRL(deliveryFee) : "Consulte...")}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm font-black text-neutral-950 pt-2 border-t">

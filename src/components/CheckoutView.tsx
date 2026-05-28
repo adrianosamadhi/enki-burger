@@ -27,6 +27,8 @@ interface CheckoutViewProps {
   clientProfile: ClientProfile | null;
   deliveryFee: number | null;
   deliveryDistance: number | null;
+  deliveryType: "entrega" | "retirada";
+  onDeliveryTypeChange: (type: "entrega" | "retirada") => void;
   onCalculateRoute: (street: string, number: string, neighborhood: string, cep: string) => Promise<void>;
   onFinalizeOrder: (
     nome: string,
@@ -67,6 +69,8 @@ export function CheckoutView({
   clientProfile,
   deliveryFee,
   deliveryDistance,
+  deliveryType,
+  onDeliveryTypeChange,
   onCalculateRoute,
   onFinalizeOrder,
   onBackToMenu,
@@ -82,7 +86,6 @@ export function CheckoutView({
   const [neighborhood, setNeighborhood] = useState("");
   const [reference, setReference] = useState("");
 
-  const [deliveryType, setDeliveryType] = useState<"entrega" | "retirada">("entrega");
   const [paymentMethod, setPaymentMethod] = useState<"Pix" | "Cartão" | "Maquininha" | "">("");
   const [cardType, setCardType] = useState<"Débito" | "Crédito" | "">("");
   const [calculatingRoute, setCalculatingRoute] = useState(false);
@@ -298,28 +301,31 @@ export function CheckoutView({
             >
               Cancelar
             </button>
-            <button
-              onClick={() => {
-                onCloseModal();
-                onFinalizeOrder(
-                  name,
-                  phone,
-                  street,
-                  number,
-                  neighborhood,
-                  cep,
-                  reference,
-                  "Pix",
-                  "",
-                  pId,
-                  "Aprovado",
-                  deliveryType
-                );
-              }}
-              className="bg-[#FF3D00] hover:bg-[#E03600] text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer font-sans"
-            >
-              <Check className="w-3.5 h-3.5" /> Confirmar Pagamento
-            </button>
+              <button
+                onClick={async () => {
+                  if (isSimulation) {
+                    onCloseModal();
+                    onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                  } else {
+                    showToast("Verificando pagamento no Mercado Pago...", "success");
+                    try {
+                      const s = await fetch(getApiUrl(`/api/checkout/mp/status/${pId}`));
+                      const sj = await s.json();
+                      if (sj.status === "approved" || sj.status === "authorized") {
+                        onCloseModal();
+                        onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                      } else {
+                        showToast("Pagamento ainda não confirmado. Tente novamente em alguns segundos.", "error");
+                      }
+                    } catch (e) {
+                      showToast("Erro ao verificar pagamento.", "error");
+                    }
+                  }
+                }}
+                className="bg-[#FF3D00] hover:bg-[#E03600] text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer font-sans w-full mt-2"
+              >
+                <Check className="w-3.5 h-3.5" /> Enviar Pedido (Apenas após pagar)
+              </button>
           </React.Fragment>
         );
 
@@ -516,28 +522,22 @@ export function CheckoutView({
                 href={initPoint}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => {
-                  onCloseModal();
-                  // Pre-finalize order in client history with status "Aguardando Pagamento" or "Aprovado"
-                  onFinalizeOrder(
-                    name,
-                    phone,
-                    street,
-                    number,
-                    neighborhood,
-                    cep,
-                    reference,
-                    `Mercado Pago Checkout`,
-                    "Crédito",
-                    pId,
-                    "Aprovado",
-                    deliveryType
-                  );
-                }}
                 className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md font-sans"
               >
-                Ir para o Mercado Pago Seguramente
+                Ir para o Mercado Pago
               </a>
+
+              <button
+                onClick={() => {
+                  onCloseModal();
+                  onFinalizeOrder(
+                    name, phone, street, number, neighborhood, cep, reference, `Mercado Pago Checkout`, "Crédito", pId, "Aprovado", deliveryType
+                  );
+                }}
+                className="w-full mt-3 bg-[#FF3D00] hover:bg-[#E03600] text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md font-sans"
+              >
+                Já realizei o pagamento (Enviar Pedido)
+              </button>
             </div>
           );
 
@@ -664,7 +664,7 @@ export function CheckoutView({
         </p>
         <div className="grid grid-cols-2 gap-3.5">
           <button
-            onClick={() => setDeliveryType("entrega")}
+            onClick={() => onDeliveryTypeChange("entrega")}
             className={`border-2 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
               deliveryType === "entrega"
                 ? "border-[#FF3D00] bg-red-50/10 text-[#FF3D00]"
@@ -676,7 +676,7 @@ export function CheckoutView({
           </button>
 
           <button
-            onClick={() => setDeliveryType("retirada")}
+            onClick={() => onDeliveryTypeChange("retirada")}
             className={`border-2 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
               deliveryType === "retirada"
                 ? "border-[#FF3D00] bg-red-50/10 text-[#FF3D00]"

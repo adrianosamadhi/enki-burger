@@ -87,6 +87,7 @@ export default function App() {
   // Operational logistic attributes
   const [deliveryDistance, setDeliveryDistance] = useState<number | null>(null);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
+  const [deliveryType, setDeliveryType] = useState<"entrega" | "retirada">("entrega");
 
   // Cloud sync credentials client definition
   const [supabaseClient, setSupabaseClient] = useState<any>(null);
@@ -708,12 +709,12 @@ export default function App() {
     cardType: string,
     paymentId: string,
     gatewayStatus: string,
-    deliveryType: "entrega" | "retirada" = "entrega"
+    checkoutDeliveryType: "entrega" | "retirada" = "entrega"
   ) => {
     const orderId = "PED-" + Math.floor(1000 + Math.random() * 9000);
     const items = Object.values(carrinho) as CartItem[];
     const subtotal = items.reduce((acc, item) => acc + getCartItemTotalPrice(item), 0);
-    const actualFreight = deliveryType === "retirada" ? 0 : (deliveryFee || 0);
+    const actualFreight = checkoutDeliveryType === "retirada" ? 0 : (deliveryFee || 0);
     const total = subtotal + actualFreight;
 
     // Prepare text summary
@@ -734,10 +735,10 @@ export default function App() {
       dataHora: new Date().toLocaleString("pt-BR"),
       nome,
       telefone,
-      rua: deliveryType === "retirada" ? "Retirada Secundária" : rua,
-      numero: deliveryType === "retirada" ? "" : numero,
-      bairro: deliveryType === "retirada" ? "" : bairro,
-      cep: deliveryType === "retirada" ? "" : cep,
+      rua: checkoutDeliveryType === "retirada" ? "Retirada Secundária" : rua,
+      numero: checkoutDeliveryType === "retirada" ? "" : numero,
+      bairro: checkoutDeliveryType === "retirada" ? "" : bairro,
+      cep: checkoutDeliveryType === "retirada" ? "" : cep,
       resumoItensString: itemsDoc,
       total,
       subtotal,
@@ -803,11 +804,11 @@ export default function App() {
     const finalPaymentModeText =
       paymentMethod === "Maquininha na Entrega" ? paymentMethod : `${paymentMethod} (Mercado Pago Aprovado)`;
 
-    const deliveryDetail = deliveryType === "retirada"
+    const deliveryDetail = checkoutDeliveryType === "retirada"
       ? `📍 *MODO DE ENTREGA:* Retirada na Loja (Balcão)\n🏬 *ENDEREÇO DA LOJA:* ${config.storeAddress}`
       : `📍 *MODO DE ENTREGA:* Envio para Endereço\n🏠 *ENDEREÇO:* ${rua}, ${numero} - ${bairro}\n📬 *CEP:* ${cep}${referencia ? `\n🗺️ *REF:* ${referencia}` : ""}\n🚗 *DISTÂNCIA:* ${deliveryDistance?.toFixed(1) || "?"} km`;
 
-    const freightDetail = deliveryType === "retirada" ? "Grátis" : formatBRL(actualFreight);
+    const freightDetail = checkoutDeliveryType === "retirada" ? "Grátis" : formatBRL(actualFreight);
 
     const msg = `🔔 *NOVO PEDIDO - ${config.storeName.toUpperCase()}* (${orderId})\n\n` +
       `👤 *CLIENTE*\n${nome} - ${telefone}\n\n` +
@@ -1312,6 +1313,8 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                 clientProfile={clientProfile}
                 deliveryDistance={deliveryDistance}
                 deliveryFee={deliveryFee}
+                deliveryType={deliveryType}
+                onDeliveryTypeChange={setDeliveryType}
                 onCalculateRoute={handleCalculateRoute}
                 onFinalizeOrder={handleFinalizeOrder}
                 onBackToMenu={() => setView("menu")}
@@ -1352,6 +1355,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
           <CartSidebar
             carrinho={carrinho}
             deliveryFee={deliveryFee}
+            deliveryType={deliveryType}
             onDecrease={(key) => changeCartQtyByKey(key, -1)}
             onIncrease={(key) => changeCartQtyByKey(key, 1)}
             onAdvance={() => setReviewOrderModalOpen(true)}
