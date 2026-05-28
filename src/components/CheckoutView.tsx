@@ -203,35 +203,53 @@ export function CheckoutView({
       try {
         const mpAccessToken = config.mpAccessToken;
 
-        const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            paymentMethod: "Pix",
-            total: Number(total),
-            name,
-            phone,
-            email: "compras@enkiburger.com.br",
-            storeName: config.storeName || "Enki Burger",
-            mpAccessToken
-          })
-        });
+        let pId;
+        let pixKey;
+        let isSimulation = false;
+        
+        try {
+          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              paymentMethod: "Pix",
+              total: Number(total),
+              name,
+              phone,
+              email: "compras@enkiburger.com.br",
+              storeName: config.storeName || "Enki Burger",
+              mpAccessToken
+            })
+          });
 
-        if (!mpRes.ok) {
-          const errData = await mpRes.json();
-          console.error("Mercado Pago API Pix Error:", errData);
-          throw new Error(errData.error || "Erro ao processar Pix através do servidor.");
+          if (!mpRes.ok) {
+            const errData = await mpRes.json().catch(() => ({}));
+            console.error("Mercado Pago API Pix Error:", errData);
+            throw new Error(errData.error || "Erro ao processar Pix através do servidor.");
+          }
+
+          const data = await mpRes.json();
+          pId = data.paymentId;
+          pixKey = data.pixKey;
+          isSimulation = data.isSimulation;
+        } catch (networkErr: any) {
+          if (networkErr.message && (networkErr.message.includes("Failed to fetch") || networkErr.message.includes("NetworkError"))) {
+             isSimulation = true;
+             pId = "MP-GH-" + Math.floor(100000 + Math.random() * 900000);
+             const payloadStore = (config.storeName || "Enki Burger").substring(0, 15).toUpperCase();
+             const cleanStore = encodeURIComponent(payloadStore).replace(/%[0-9A-F]{2}/g, "");
+             const formattedTotal = Number(total).toFixed(2);
+             pixKey = `00020126580014BR.GOV.BCBC.PIX0136e9ff97-ad20-4e2a-b6b8-2ea9c98ef2e55204000053039865405${formattedTotal}5802BR5911${cleanStore.substring(0, 10)}6009SAOPAULO62070503***6304CAFE`;
+             showToast("Modo Estático Ativo. API não suportada no GitHub Pages, simulando...", "success");
+          } else {
+             throw networkErr;
+          }
         }
 
-        const data = await mpRes.json();
-        const pId = data.paymentId;
-        const pixKey = data.pixKey;
-        const isSimulation = data.isSimulation;
-
         if (isSimulation) {
-          showToast("Aviso: Chave simulação activa (Sem Configuração Completa)", "success");
+          showToast("Aviso: Chave simulação activa (Sem Configuração Completa/Static)", "success");
         }
 
         const handleCopyKey = () => {
@@ -328,32 +346,46 @@ export function CheckoutView({
       try {
         const mpAccessToken = config.mpAccessToken;
 
-        const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            paymentMethod: "Cartão",
-            total: Number(total),
-            name,
-            phone,
-            email: "compras@enkiburger.com.br",
-            storeName: config.storeName || "Enki Burger",
-            mpAccessToken
-          })
-        });
+        let pId;
+        let initPoint = "";
+        let isSimulation = false;
+        
+        try {
+          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              paymentMethod: "Cartão",
+              total: Number(total),
+              name,
+              phone,
+              email: "compras@enkiburger.com.br",
+              storeName: config.storeName || "Enki Burger",
+              mpAccessToken
+            })
+          });
 
-        if (!mpRes.ok) {
-          const errData = await mpRes.json();
-          console.error("Mercado Pago API Preference Error:", errData);
-          throw new Error(errData.error || "Erro ao gerar link de pagamento seguro.");
+          if (!mpRes.ok) {
+            const errData = await mpRes.json().catch(() => ({}));
+            console.error("Mercado Pago API Preference Error:", errData);
+            throw new Error(errData.error || "Erro ao gerar link de pagamento seguro.");
+          }
+
+          const data = await mpRes.json();
+          pId = data.paymentId;
+          initPoint = data.initPoint;
+          isSimulation = data.isSimulation;
+        } catch (networkErr: any) {
+          if (networkErr.message && (networkErr.message.includes("Failed to fetch") || networkErr.message.includes("NetworkError"))) {
+             isSimulation = true;
+             pId = "MP-PREF-" + Math.floor(100000 + Math.random() * 900000);
+             showToast("Modo Estático Ativo. API não suportada no GitHub Pages, simulando...", "success");
+          } else {
+             throw networkErr;
+          }
         }
-
-        const data = await mpRes.json();
-        const pId = data.paymentId;
-        const initPoint = data.initPoint;
-        const isSimulation = data.isSimulation;
 
         if (isSimulation) {
           // If we are in simulation mode, keep the super sleek direct Card Checkout Form mockup!
@@ -557,7 +589,7 @@ export function CheckoutView({
       </button>
 
       {/* Cart Summary for Mobile view */}
-      <div className="bg-white rounded-3xl border border-stone-100 p-4 sm:p-5 shadow-sm lg:hidden select-none">
+      <div className="bg-white rounded-2xl border border-stone-100 p-3 sm:p-4 shadow-sm lg:hidden select-none">
         <h3 className="text-sm font-bold text-neutral-950 mb-3 flex items-center gap-2">
           <ShoppingBag className="w-4 h-4 text-[#FF3D00]" /> Itens Selecionados
         </h3>
@@ -592,7 +624,7 @@ export function CheckoutView({
       </div>
 
       {/* Client Information Form */}
-      <div className="bg-white rounded-3xl border border-stone-100 p-4 sm:p-5 shadow-sm space-y-4 text-left">
+      <div className="bg-white rounded-2xl border border-stone-100 p-3 sm:p-4 shadow-sm space-y-3 text-left">
         <div className="flex justify-between items-center pb-2 border-b border-stone-50">
           <h3 className="text-sm font-bold text-neutral-950 flex items-center gap-2 font-mono">
             <User className="w-4 h-4 text-[#FF3D00]" /> Seus Dados de Contato
@@ -632,7 +664,7 @@ export function CheckoutView({
       </div>
 
       {/* Delivery / Pickup Method Selector */}
-      <div className="bg-white rounded-3xl border border-stone-100 p-4 sm:p-5 shadow-sm space-y-4 text-left select-none">
+      <div className="bg-white rounded-2xl border border-stone-100 p-3 sm:p-4 shadow-sm space-y-3 text-left select-none">
         <h3 className="text-sm font-bold text-neutral-950 flex items-center gap-2 font-mono">
           <Truck className="w-4 h-4 text-[#FF3D00]" /> Método de Entrega
         </h3>
@@ -668,7 +700,7 @@ export function CheckoutView({
 
       {/* Address Calculation Details or Pickup Information */}
       {deliveryType === "entrega" ? (
-        <div className="bg-white rounded-3xl border border-stone-100 p-4 sm:p-5 shadow-sm space-y-4 text-left">
+        <div className="bg-white rounded-2xl border border-stone-100 p-3 sm:p-4 shadow-sm space-y-3 text-left">
           <h3 className="text-sm font-bold text-neutral-950 flex items-center gap-2 font-mono">
             <Truck className="w-4 h-4 text-[#FF3D00]" /> CEP e Endereço de Entrega
           </h3>
@@ -780,7 +812,7 @@ export function CheckoutView({
           </div>
         </div>
       ) : (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-4 sm:p-5 text-left space-y-3.5 select-none animate-in fade-in duration-200">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 sm:p-4 text-left space-y-2 select-none animate-in fade-in duration-200">
           <div className="flex items-center gap-2.5 text-emerald-800">
             <ShoppingBag className="w-5 h-5 text-emerald-650 shrink-0 animate-bounce" />
             <span className="text-sm font-bold font-mono">Você escolheu Retirar na Loja (Balcão)</span>
@@ -796,7 +828,7 @@ export function CheckoutView({
       )}
 
       {/* Payment Picker Container */}
-      <div className="bg-white rounded-3xl border border-stone-100 p-4 sm:p-5 shadow-sm space-y-4 text-left">
+      <div className="bg-white rounded-2xl border border-stone-100 p-3 sm:p-4 shadow-sm space-y-3 text-left">
         <h3 className="text-sm font-bold text-neutral-950 flex items-center gap-2 font-mono">
           <CreditCard className="w-4 h-4 text-[#FF3D00]" /> Escolha como deseja pagar
         </h3>
@@ -885,7 +917,7 @@ export function CheckoutView({
       </div>
 
       {/* Bill summary layout */}
-      <div className="bg-neutral-950 text-white rounded-3xl p-4 sm:p-5 space-y-3 shadow-xl relative overflow-hidden border border-white/5 select-none text-left">
+      <div className="bg-neutral-950 text-white rounded-2xl p-3 sm:p-4 space-y-2 shadow-xl relative overflow-hidden border border-white/5 select-none text-left">
         <div className="flex justify-between text-xs text-stone-400">
           <span>Subtotal:</span>
           <span className="font-semibold text-stone-200">{formatBRL(subtotal)}</span>
