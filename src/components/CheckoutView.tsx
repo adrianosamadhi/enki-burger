@@ -51,15 +51,6 @@ interface CheckoutViewProps {
 }
 
 const getApiUrl = (suffix: string): string => {
-  const hostname = window.location.hostname;
-  // If the app is run from GitHub Pages, or a custom domain outside of localhost/run.app,
-  // route requests dynamically to the running Cloud Run container backend to process live cards/Pix
-  if (
-    hostname.includes("github.io") || 
-    (!hostname.includes("run.app") && hostname !== "localhost" && hostname !== "127.0.0.1")
-  ) {
-    return `https://ais-pre-b4s6tdo2sj5w6cyewcd2gq-58351164655.us-east1.run.app${suffix}`;
-  }
   return suffix;
 };
 

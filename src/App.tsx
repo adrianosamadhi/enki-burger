@@ -267,8 +267,8 @@ export default function App() {
 
   // Effects 3: Sync credentials verification
   useEffect(() => {
-    const sUrl = config.supabaseUrl || (import.meta as any).env.VITE_SUPABASE_URL;
-    const sKey = config.supabaseKey || (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+    const sUrl = config.supabaseUrl || (import.meta as any).env?.VITE_SUPABASE_URL || "https://amylompetctxeaeyioig.supabase.co";
+    const sKey = config.supabaseKey || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "sb_publishable_-i3Gye2VCW3W-LZFcksVaw_CA095Mhm";
 
     if (sUrl && sKey) {
       try {
