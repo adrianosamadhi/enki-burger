@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Cardápio Digital",
+  "description": "Cardápio digital responsivo, PWA instalável, com cálculo de rota real e integração de pagamento.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
