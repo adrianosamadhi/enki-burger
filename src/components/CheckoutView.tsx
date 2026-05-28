@@ -340,10 +340,71 @@ export function CheckoutView({
           </div>
         );
 
+        let pollingInterval: any;
+        let isPolling = true;
+
+        const stopPolling = () => {
+          isPolling = false;
+          if (pollingInterval) clearTimeout(pollingInterval);
+        };
+
+        const checkStatus = async () => {
+             if (!isPolling) return;
+             
+             if (isSimulation) {
+                 showToast("Pagamento simulado aprovado automaticamente!", "success");
+                 onCloseModal();
+                 onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                 stopPolling();
+                 return;
+             }
+             
+             if (mpAccessToken) {
+                try {
+                    const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent(`https://api.mercadopago.com/v1/payments/${pId}`);
+                    const s = await fetch(mpApiUrl, {
+                        headers: { "Authorization": `Bearer ${mpAccessToken}` }
+                    });
+                    const sj = await s.json();
+                    if (sj.status === "approved" || sj.status === "authorized") {
+                        showToast("Pagamento Pix aprovado com sucesso!", "success");
+                        onCloseModal();
+                        onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                        stopPolling();
+                        return;
+                    } 
+                } catch (e) {
+                    console.error("Erro ao verificar pagamento via polling", e);
+                }
+             } else {
+                 // Try backend route just in case
+                 try {
+                     const s = await fetch(getApiUrl(`/api/checkout/mp/status/${pId}`));
+                     const sj = await s.json();
+                     if (sj.status === "approved" || sj.status === "authorized") {
+                        showToast("Pagamento Pix aprovado com sucesso!", "success");
+                        onCloseModal();
+                        onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                        stopPolling();
+                        return;
+                     }
+                 } catch (e) {}
+             }
+
+             if (isPolling) {
+                 pollingInterval = setTimeout(checkStatus, 5000);
+             }
+        };
+
+        pollingInterval = setTimeout(checkStatus, 5000);
+
         const actions = (
           <React.Fragment>
             <button
-              onClick={onCloseModal}
+              onClick={() => {
+                stopPolling();
+                onCloseModal();
+              }}
               className="px-4 py-2 font-bold text-xs text-stone-500 hover:text-stone-700 font-sans cursor-pointer"
             >
               Cancelar
@@ -351,21 +412,36 @@ export function CheckoutView({
               <button
                 onClick={async () => {
                   if (isSimulation) {
+                    stopPolling();
                     onCloseModal();
                     onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
                   } else {
                     showToast("Verificando pagamento no Mercado Pago...", "success");
-                    try {
-                      const s = await fetch(getApiUrl(`/api/checkout/mp/status/${pId}`));
-                      const sj = await s.json();
-                      if (sj.status === "approved" || sj.status === "authorized") {
+                    let approved = false;
+                    if (mpAccessToken) {
+                        try {
+                            const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent(`https://api.mercadopago.com/v1/payments/${pId}`);
+                            const s = await fetch(mpApiUrl, { headers: { "Authorization": `Bearer ${mpAccessToken}` } });
+                            const sj = await s.json();
+                            if (sj.status === "approved" || sj.status === "authorized") approved = true;
+                        } catch(e) {}
+                    }
+                    if (!approved) {
+                        try {
+                          const s = await fetch(getApiUrl(`/api/checkout/mp/status/${pId}`));
+                          const sj = await s.json();
+                          if (sj.status === "approved" || sj.status === "authorized") {
+                             approved = true;
+                          }
+                        } catch(e) {}
+                    }
+
+                    if (approved) {
+                        stopPolling();
                         onCloseModal();
                         onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                      } else {
-                        showToast("Pagamento ainda não confirmado. Tente novamente em alguns segundos.", "error");
-                      }
-                    } catch (e) {
-                      showToast("Erro ao verificar pagamento.", "error");
+                    } else {
+                        showToast("Pagamento ainda não confirmado. Aguarde ou verifique novamente.", "error");
                     }
                   }
                 }}

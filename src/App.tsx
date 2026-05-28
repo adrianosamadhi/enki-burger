@@ -821,40 +821,9 @@ export default function App() {
 
     const link = `https://api.whatsapp.com/send?phone=${config.whatsapp}&text=${encodeURIComponent(msg)}`;
 
-    const modalBody = (
-      <div className="space-y-3.5 text-center py-2 text-stone-900 select-none">
-        <div className="mx-auto w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-1">
-          <Check className="w-6 h-6 animate-pulse" />
-        </div>
-        <p className="font-bold text-sm text-neutral-950">Pedido Gerado com Sucesso!</p>
-        <p className="text-xs text-stone-500 leading-relaxed max-w-xs mx-auto">
-          O pedido foi salvo localmente. Clique no botão abaixo para redirecionar para o WhatsApp e confirmar o
-          recebimento com a cozinha!
-        </p>
-      </div>
-    );
-
-    const modalActions = (
-      <a
-        href={link}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={() => {
-          setGeneralModal(null);
-          setCarrinho({});
-          setView("menu");
-        }}
-        className="w-full bg-[#FF3D00] hover:bg-[#E03600] text-white py-3 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-1.5 cursor-pointer shadow-md select-none font-sans"
-      >
-        Enviar no WhatsApp
-      </a>
-    );
-
-    setGeneralModal({
-      title: "Pedido Registrado!",
-      body: modalBody,
-      actions: modalActions,
-    });
+    setCarrinho({});
+    setView("menu");
+    window.location.href = link;
   };
 
   const executeCheckoutSubmit = () => {
