@@ -38,20 +38,21 @@ body {
 /* Print thermal receipt template */
 @media print {
   body * {
-    visibility: hidden;
+    visibility: hidden !important;
   }
   #thermal-receipt, #thermal-receipt * {
-    visibility: visible;
+    visibility: visible !important;
+    display: block !important;
   }
   #thermal-receipt {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80mm;
-    padding: 2mm;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 11px;
-    color: #000;
-    background: #fff;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    padding: 2mm !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 11px !important;
+    color: #000 !important;
+    background: #fff !important;
   }
 }

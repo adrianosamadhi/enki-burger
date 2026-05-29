@@ -106,37 +106,56 @@ export default function App() {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       
-      const playChimePair = (startTimeOffset: number) => {
-        const now = audioCtx.currentTime + startTimeOffset;
-        
-        // Tone 1: High frequency pleasant sine wave (B5 / Ti5)
-        const osc1 = audioCtx.createOscillator();
-        const gain1 = audioCtx.createGain();
-        osc1.type = "sine";
-        osc1.frequency.setValueAtTime(987.77, now); // Ti5
-        gain1.gain.setValueAtTime(0.3, now);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-        osc1.connect(gain1);
-        gain1.connect(audioCtx.destination);
-        osc1.start(now);
-        osc1.stop(now + 0.4);
+      const playDoubleRing = (offset: number) => {
+        const now = audioCtx.currentTime + offset;
 
-        // Tone 2: Harmonious perfect third (D6 / Ré6) starting slightly later
-        const osc2 = audioCtx.createOscillator();
-        const gain2 = audioCtx.createGain();
-        osc2.type = "sine";
-        osc2.frequency.setValueAtTime(1174.66, now + 0.15); // Ré6
-        gain2.gain.setValueAtTime(0.3, now + 0.15);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-        osc2.connect(gain2);
-        gain2.connect(audioCtx.destination);
-        osc2.start(now + 0.15);
-        osc2.stop(now + 0.6);
+        // Custom function to create a modulated tone representing a high-pitched phone ringer ring
+        const createRingOscillator = (freq: number, start: number, end: number) => {
+          const osc = audioCtx.createOscillator();
+          const lfo = audioCtx.createOscillator();
+          const lfoGain = audioCtx.createGain();
+          const gainNode = audioCtx.createGain();
+
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, start);
+
+          // 20Hz rapid frequency vibration for that iconic phone ringer "trrrrrr"
+          lfo.type = "square";
+          lfo.frequency.setValueAtTime(20, start);
+          lfoGain.gain.setValueAtTime(45, start);
+
+          // Envelope modeling clear solid sound with smooth rise and fall
+          gainNode.gain.setValueAtTime(0, start);
+          gainNode.gain.linearRampToValueAtTime(0.35, start + 0.05); // slightly louder max volume (0.35)
+          gainNode.gain.setValueAtTime(0.35, end - 0.05);
+          gainNode.gain.linearRampToValueAtTime(0, end);
+
+          lfo.connect(lfoGain);
+          lfoGain.connect(osc.frequency);
+
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+
+          lfo.start(start);
+          lfo.stop(end);
+          osc.start(start);
+          osc.stop(end);
+        };
+
+        // Standard double-ring pattern:
+        // Ring 1: starts at 'now', ends 0.7s later
+        // Ring 2: starts 0.9s later, ends 1.6s later (0.2s pause in between)
+        // Tune with harmonious third (550Hz and 680Hz) to represent a multi-note loud electronic bell
+        createRingOscillator(550, now, now + 0.7);
+        createRingOscillator(685, now, now + 0.7);
+
+        createRingOscillator(550, now + 0.9, now + 1.6);
+        createRingOscillator(685, now + 0.9, now + 1.6);
       };
 
-      // Sound this chime pair 4 times, spaced 1.2 seconds apart (approx. 5 seconds total duration)
+      // Sound the double-ring sequence 4 times, spaced by 3 seconds (approx 12 seconds total incoming ring alarm)
       for (let i = 0; i < 4; i++) {
-        playChimePair(i * 1.2);
+        playDoubleRing(i * 3.0);
       }
     } catch (e) {
       console.warn("Audio Context blocked or unsupported:", e);
@@ -499,11 +518,11 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
       const { data } = await client
         .from("clientes_pedidos")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
       if (data) {
-        // Map and append to local order cache lists
-        const mapped: Order[] = data.map((item: any) => ({
-          id: item.gateway_id || `PED-${Math.floor(1000 + Math.random() * 9000)}`,
+        // Map and append to local order cache lists with dynamic sequence starting from 1
+        const mapped: Order[] = data.map((item: any, index: number) => ({
+          id: `PED-${index + 1}`,
           dataHora: new Date(item.created_at).toLocaleString("pt-BR"),
           nome: item.nome,
           telefone: item.telefone,
@@ -520,8 +539,11 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
           gatewayStatus: item.gateway_status || "Aprovado",
           detalhesEstruturados: [],
         }));
-        setOrdersHistory(mapped);
-        safeStorage.setItem("orders_history", JSON.stringify(mapped));
+        
+        // Reverse so that the latest orders (highest numbers) are always shown at the top
+        const reversed = [...mapped].reverse();
+        setOrdersHistory(reversed);
+        safeStorage.setItem("orders_history", JSON.stringify(reversed));
       }
     } catch {
       // Ignored: silent local fallback
@@ -733,10 +755,27 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     }
   };
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
+    if (!window.confirm("Deseja realmente apagar todo o histórico de pedidos? Esta ação é irreversível e reiniciará a numeração a partir do 1.")) {
+      return;
+    }
     setOrdersHistory([]);
     safeStorage.removeItem("orders_history");
-    showToast("Histórico de pedidos esvaziado!", "success");
+
+    if (supabaseClient) {
+      try {
+        const { error } = await supabaseClient
+          .from("clientes_pedidos")
+          .delete()
+          .neq("id", 0); // deletes all rows in Postgres safely
+        if (error) {
+          console.error("Erro ao limpar banco de dados:", error);
+        }
+      } catch (err) {
+        console.error("Erro ao limpar banco de dados:", err);
+      }
+    }
+    showToast("Histórico de pedidos esvaziado! Numeração reiniciada no 1.", "success");
   };
 
   // Cart operations
@@ -868,7 +907,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     gatewayStatus: string,
     checkoutDeliveryType: "entrega" | "retirada" = "entrega"
   ) => {
-    const orderId = "PED-" + Math.floor(1000 + Math.random() * 9000);
+    const orderId = `PED-${ordersHistory.length + 1}`;
     const items = Object.values(carrinho) as CartItem[];
     const subtotal = items.reduce((acc, item) => acc + getCartItemTotalPrice(item), 0);
     const actualFreight = checkoutDeliveryType === "retirada" ? 0 : (deliveryFee || 0);
