@@ -31,15 +31,13 @@ export function ProductCard({
         onClick={onSelect}
         className="bg-white rounded-[2rem] border border-stone-100 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-lg hover:border-stone-200 transition-all duration-300 hover:-translate-y-1 group cursor-pointer"
       >
-        <div className="relative overflow-hidden w-full h-40 sm:h-48 md:h-52 bg-stone-100">
+        <div className="relative overflow-hidden w-full h-40 sm:h-48 md:h-52 bg-stone-100 flex items-center justify-center">
           <img
-            src={product.img}
+            src={product.img && product.img.trim() !== "" ? product.img : `https://placehold.co/300x200/f1f5f9/94a3b8?text=${encodeURIComponent(product.nome)}`}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
             alt={product.nome}
             onError={(e) => {
-              (e.target as HTMLImageElement).src = `https://placehold.co/300x200/f1f5f9/94a3b8?text=${encodeURIComponent(
-                product.nome
-              )}`;
+              (e.target as HTMLImageElement).src = `https://placehold.co/300x200/f1f5f9/94a3b8?text=${encodeURIComponent(product.nome)}`;
             }}
           />
         </div>
@@ -87,13 +85,11 @@ export function ProductCard({
       className="bg-white p-4 rounded-3xl border border-stone-100 flex gap-4 items-center shadow-sm hover:shadow-md transition-shadow duration-300 cursor-pointer"
     >
       <img
-        src={product.img}
+        src={product.img && product.img.trim() !== "" ? product.img : `https://placehold.co/150x150/f1f5f9/94a3b8?text=${encodeURIComponent(product.nome)}`}
         className="w-24 h-24 rounded-2xl object-cover shrink-0"
         alt={product.nome}
         onError={(e) => {
-          (e.target as HTMLImageElement).src = `https://placehold.co/150x150/f1f5f9/94a3b8?text=${encodeURIComponent(
-            product.nome
-          )}`;
+          (e.target as HTMLImageElement).src = `https://placehold.co/150x150/f1f5f9/94a3b8?text=${encodeURIComponent(product.nome)}`;
         }}
       />
       <div className="flex-1 min-w-0">

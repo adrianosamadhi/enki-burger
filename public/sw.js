@@ -1,4 +1,4 @@
-const CACHE_NAME = 'menu-digital-cache-v3';
+const CACHE_NAME = 'menu-digital-cache-v6';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -29,6 +29,11 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
+  // Always bypass Service Worker for non-GET requests (e.g. POST to Supabase)
+  if (e.request.method !== 'GET') {
+    return;
+  }
+
   // We handle network-first or cache-first based on resource
   const url = new URL(e.request.url);
   

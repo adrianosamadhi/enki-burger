@@ -80,15 +80,9 @@ export default function App() {
     return parsed;
   });
 
-  const [produtos, setProdutos] = useState<Product[]>(() => {
-    const saved = safeStorage.getItem("enki_produtos");
-    return saved ? JSON.parse(saved) : DEFAULT_PRODUCTS;
-  });
+  const [produtos, setProdutos] = useState<Product[]>([]);
 
-  const [adicionais, setAdicionais] = useState<Addon[]>(() => {
-    const saved = safeStorage.getItem("enki_adicionais");
-    return saved ? JSON.parse(saved) : DEFAULT_ADDONS;
-  });
+  const [adicionais, setAdicionais] = useState<Addon[]>([]);
 
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(() => {
     const saved = safeStorage.getItem("enki_cliente_sessao");
@@ -287,7 +281,7 @@ export default function App() {
   // Effects 3: Sync credentials verification
   useEffect(() => {
     const sUrl = config.supabaseUrl || (import.meta as any).env?.VITE_SUPABASE_URL || "https://amylompetctxeaeyioig.supabase.co";
-    const sKey = config.supabaseKey || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "sb_publishable_-i3Gye2VCW3W-LZFcksVaw_CA095Mhm";
+    const sKey = config.supabaseKey || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFteWxvbXBldGN0eGVhZXlpb2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDc1ODAsImV4cCI6MjA5NTQ4MzU4MH0.KhQEC-EcfMQXiJ0KBg0nHM-1U1etJUHjIy524cVpKU4";
 
     if (sUrl && sKey) {
       try {
@@ -372,7 +366,9 @@ export default function App() {
           adicionaisPermitidos: p.adicionais_permitidos || []
         }));
         setProdutos(mappedProducts);
-        safeStorage.setItem("enki_produtos", JSON.stringify(mappedProducts));
+      } else {
+        // If Supabase is totally empty, we might want to populate it with defaults, 
+        // but for now let's just stick to what we have in state
       }
     } catch (err) {
       console.error("Erro ao carregar hamburgueria_produtos:", err);
@@ -392,7 +388,6 @@ export default function App() {
           ativo: !!a.ativo
         }));
         setAdicionais(mappedAddons);
-        safeStorage.setItem("enki_adicionais", JSON.stringify(mappedAddons));
       }
     } catch (err) {
       console.error("Erro ao carregar hamburgueria_adicionais:", err);
@@ -481,7 +476,6 @@ export default function App() {
       } else {
         list.push(updated);
       }
-      safeStorage.setItem("enki_produtos", JSON.stringify(list));
       return list;
     });
 
@@ -513,7 +507,6 @@ export default function App() {
   const handleDeleteProduct = async (id: string) => {
     setProdutos((prev) => {
       const list = prev.filter((item) => item.id !== id);
-      safeStorage.setItem("enki_produtos", JSON.stringify(list));
       return list;
     });
 
@@ -544,7 +537,6 @@ export default function App() {
       } else {
         list.push(updated);
       }
-      safeStorage.setItem("enki_adicionais", JSON.stringify(list));
       return list;
     });
 
@@ -573,7 +565,6 @@ export default function App() {
   const handleDeleteAddon = async (id: string) => {
     setAdicionais((prev) => {
       const list = prev.filter((item) => item.id !== id);
-      safeStorage.setItem("enki_adicionais", JSON.stringify(list));
       return list;
     });
 
@@ -1467,13 +1458,11 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
             {/* Header / Banner Image */}
             <div className="relative w-full h-64 sm:h-76 md:h-80 bg-stone-50 overflow-hidden flex items-center justify-center shrink-0 border-b border-stone-100">
               <img
-                src={activeProductDetail.img}
+                src={activeProductDetail.img && activeProductDetail.img.trim() !== "" ? activeProductDetail.img : `https://placehold.co/600x400/f1f5f9/94a3b8?text=${encodeURIComponent(activeProductDetail.nome)}`}
                 className="w-full h-full object-contain p-4 transition-transform duration-500 hover:scale-105"
                 alt={activeProductDetail.nome}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = `https://placehold.co/600x400/f1f5f9/94a3b8?text=${encodeURIComponent(
-                    activeProductDetail.nome
-                  )}`;
+                  (e.target as HTMLImageElement).src = `https://placehold.co/600x400/f1f5f9/94a3b8?text=${encodeURIComponent(activeProductDetail.nome)}`;
                 }}
               />
               {/* Close Button floating */}
@@ -2067,18 +2056,14 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                       <div className="flex items-start justify-between gap-4">
                         {/* Left Info */}
                         <div className="flex gap-3">
-                          {item.img && (
-                            <img
-                              src={item.img}
-                              alt={item.nome}
-                              className="w-12 h-12 rounded-xl object-contain border bg-white shrink-0 p-1"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = `https://placehold.co/100x100/f1f5f9/94a3b8?text=${encodeURIComponent(
-                                  item.nome
-                                )}`;
-                              }}
-                            />
-                          )}
+                          <img
+                            src={item.img && item.img.trim() !== "" ? item.img : `https://placehold.co/100x100/f1f5f9/94a3b8?text=${encodeURIComponent(item.nome)}`}
+                            alt={item.nome}
+                            className="w-12 h-12 rounded-xl object-contain border bg-white shrink-0 p-1"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://placehold.co/100x100/f1f5f9/94a3b8?text=${encodeURIComponent(item.nome)}`;
+                            }}
+                          />
                           <div>
                             <span className="font-extrabold text-[#FF3D00] text-xs font-mono mr-1">
                               {item.qtd}x
