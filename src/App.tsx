@@ -280,8 +280,9 @@ export default function App() {
 
   // Effects 3: Sync credentials verification
   useEffect(() => {
-    const sUrl = config.supabaseUrl || (import.meta as any).env?.VITE_SUPABASE_URL || "https://amylompetctxeaeyioig.supabase.co";
-    const sKey = config.supabaseKey || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFteWxvbXBldGN0eGVhZXlpb2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDc1ODAsImV4cCI6MjA5NTQ4MzU4MH0.KhQEC-EcfMQXiJ0KBg0nHM-1U1etJUHjIy524cVpKU4";
+    // Hardcoded per user request to avoid issues with local DB or missing process.envs
+    const sUrl = "https://amylompetctxeaeyioig.supabase.co";
+    const sKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFteWxvbXBldGN0eGVhZXlpb2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDc1ODAsImV4cCI6MjA5NTQ4MzU4MH0.KhQEC-EcfMQXiJ0KBg0nHM-1U1etJUHjIy524cVpKU4";
 
     if (sUrl && sKey) {
       try {
@@ -316,7 +317,7 @@ export default function App() {
       setSupabaseClient(null);
       setSupabaseStatus("disconnected");
     }
-  }, [config.supabaseUrl, config.supabaseKey]);
+  }, []);
 
   const fetchRemoteData = async (client: any) => {
     // 1. Fetch config (loja_config)
