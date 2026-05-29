@@ -94,6 +94,82 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Automation preferences
+  const [autoPrintActive, setAutoPrintActive] = useState<boolean>(() => {
+    return safeStorage.getItem("enki_auto_print") === "true";
+  });
+  const [soundAlertActive, setSoundAlertActive] = useState<boolean>(() => {
+    return safeStorage.getItem("enki_sound_alert") !== "false";
+  });
+
+  const playNotificationSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      const playChimePair = (startTimeOffset: number) => {
+        const now = audioCtx.currentTime + startTimeOffset;
+        
+        // Tone 1: High frequency pleasant sine wave (B5 / Ti5)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(987.77, now); // Ti5
+        gain1.gain.setValueAtTime(0.3, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.4);
+
+        // Tone 2: Harmonious perfect third (D6 / Ré6) starting slightly later
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(1174.66, now + 0.15); // Ré6
+        gain2.gain.setValueAtTime(0.3, now + 0.15);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(now + 0.15);
+        osc2.stop(now + 0.6);
+      };
+
+      // Sound this chime pair 4 times, spaced 1.2 seconds apart (approx. 5 seconds total duration)
+      for (let i = 0; i < 4; i++) {
+        playChimePair(i * 1.2);
+      }
+    } catch (e) {
+      console.warn("Audio Context blocked or unsupported:", e);
+    }
+  };
+
+  const printDirectDbOrder = (dbItem: any) => {
+    const orderId = dbItem.gateway_id || `PED-${dbItem.id || Math.floor(1000 + Math.random() * 9000)}`;
+    const dataHora = dbItem.created_at ? new Date(dbItem.created_at).toLocaleString("pt-BR") : new Date().toLocaleString("pt-BR");
+    
+    const receipt = `
+      <pre>
+----------------------------------------
+             ${config.storeName.toUpperCase()}
+----------------------------------------
+PEDIDO: ${orderId}
+DATA: ${dataHora}
+CLIENTE: ${(dbItem.nome || "Não informado").toUpperCase()}
+TEL: ${dbItem.telefone || "Não informado"}
+ENDEREÇO: ${(dbItem.endereco || "RETIRADA NO BALCÃO").toUpperCase()}
+----------------------------------------
+${dbItem.pedido_detalhes || ""}
+----------------------------------------
+TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
+----------------------------------------
+      </pre>
+    `;
+    setReceiptHtml(receipt);
+    setTimeout(() => {
+      window.print();
+    }, 250);
+  };
+
   // Shopping cart operations
   const [carrinho, setCarrinho] = useState<Record<string, CartItem>>({});
 
@@ -299,9 +375,20 @@ export default function App() {
           .on(
             "postgres_changes",
             { event: "INSERT", schema: "public", table: "clientes_pedidos" },
-            () => {
+            (payload: any) => {
               showToast("Novo pedido recebido via site!", "success");
-              // Sync local database with Supabase queue
+              
+              // Executa o aviso sonoro se habilitado
+              if (safeStorage.getItem("enki_sound_alert") !== "false") {
+                playNotificationSound();
+              }
+              
+              // Executa a auto-impressão se habilitada
+              if (safeStorage.getItem("enki_auto_print") === "true" && payload && payload.new) {
+                printDirectDbOrder(payload.new);
+              }
+
+              // Sincroniza localmente o histórico do aplicativo
               fetchRemoteOrders(client);
             }
           )
@@ -348,6 +435,9 @@ export default function App() {
           productOrder: configData.product_order
             ? (typeof configData.product_order === "string" ? JSON.parse(configData.product_order) : configData.product_order)
             : (config.productOrder || []),
+          notificationWebhook: configData.notification_webhook !== undefined 
+            ? configData.notification_webhook 
+            : (config.notificationWebhook || ""),
         };
         setConfig(mappedConfig);
         safeStorage.setItem("cardapio_config", JSON.stringify(mappedConfig));
@@ -463,6 +553,7 @@ export default function App() {
             store_lon: updated.storeLon,
             business_hours: updated.businessHours ? JSON.stringify(updated.businessHours) : null,
             product_order: updated.productOrder ? JSON.stringify(updated.productOrder) : null,
+            notification_webhook: updated.notificationWebhook || null,
           });
 
         if (error && (error.message?.includes("column") || error.code === "PGRST204" || error.code === "42703")) {
@@ -887,14 +978,49 @@ export default function App() {
 
     const link = `https://api.whatsapp.com/send?phone=${config.whatsapp}&text=${encodeURIComponent(msg)}`;
 
+    // Automated Webhook Notification background trigger for hands-free WhatsApp alerts
+    if (config.notificationWebhook && config.notificationWebhook.trim() !== "") {
+      const webhookUrl = config.notificationWebhook.trim();
+      const payload = {
+        orderId,
+        date: new Date().toLocaleString("pt-BR"),
+        clientName: nome,
+        clientPhone: telefone,
+        address: checkoutDeliveryType === "retirada" ? "Retirada no Balcão" : `${rua}, ${numero} - ${bairro}`,
+        subtotal,
+        frete: actualFreight,
+        total,
+        payment: finalPaymentModeText,
+        itemsText: itemsDoc,
+        rawMessage: msg
+      };
+
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      }).catch(() => {
+        // Fallback for GET triggers (like CallMeBot parameter replacement)
+        try {
+          const callmebotUrl = webhookUrl.includes("text=")
+            ? webhookUrl
+            : `${webhookUrl}&text=${encodeURIComponent(msg)}`;
+          fetch(callmebotUrl).catch(() => {});
+        } catch {}
+      });
+    }
+
     const modalBody = (
       <div className="space-y-3.5 text-center py-2 text-stone-900 select-none">
         <div className="mx-auto w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-1">
           <Check className="w-6 h-6 animate-pulse" />
         </div>
-        <p className="font-bold text-sm text-neutral-950">Pedido Gerado com Sucesso!</p>
+        <p className="font-bold text-sm text-neutral-950">Pedido Confirmado e Pago!</p>
         <p className="text-xs text-stone-500 leading-relaxed max-w-xs mx-auto">
-          O pedido foi registrado! Clique no botão abaixo para redirecionar para o WhatsApp e confirmar o envio para a cozinha!
+          O pedido foi registrado em nosso sistema! <br />
+          Estamos te aguardando no WhatsApp para enviar o comprovante. Redirecionando automaticamente...
         </p>
       </div>
     );
@@ -902,14 +1028,13 @@ export default function App() {
     const modalActions = (
       <a
         href={link}
-        target="_blank"
-        rel="noopener noreferrer"
+        target="_self"
         onClick={() => {
           setGeneralModal(null);
         }}
-        className="w-full bg-[#FF3D00] hover:bg-[#E03600] text-white py-3 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-1.5 cursor-pointer shadow-md select-none font-sans"
+        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-1.5 cursor-pointer shadow-md select-none font-sans animate-bounce"
       >
-        Mandar para o WhatsApp
+        Mandar para o WhatsApp Manualmente
       </a>
     );
 
@@ -919,10 +1044,15 @@ export default function App() {
     window.scrollTo(0, 0);
 
     setGeneralModal({
-      title: "Pedido Finalizado!",
+      title: "Pedido Recebido!",
       body: modalBody,
       actions: modalActions,
     });
+
+    // Auto redirect to WhatsApp after 2 seconds for hands-free WhatsApp delivery!
+    setTimeout(() => {
+      window.location.href = link;
+    }, 2000);
   };
 
   const executeCheckoutSubmit = () => {
@@ -1426,6 +1556,18 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                 showToast={showToast}
                 onShowModal={(title, body, actions) => setGeneralModal({ title, body, actions })}
                 onCloseModal={() => setGeneralModal(null)}
+                autoPrintActive={autoPrintActive}
+                setAutoPrintActive={(val) => {
+                  setAutoPrintActive(val);
+                  safeStorage.setItem("enki_auto_print", val ? "true" : "false");
+                  showToast(val ? "A auto-impressão de pedidos está ativa!" : "Auto-impressão desligada.", "success");
+                }}
+                soundAlertActive={soundAlertActive}
+                setSoundAlertActive={(val) => {
+                  setSoundAlertActive(val);
+                  safeStorage.setItem("enki_sound_alert", val ? "true" : "false");
+                  showToast(val ? "Sinal sonoro de novos pedidos ativo!" : "Sinal sonoro desativado.", "success");
+                }}
               />
             )}
           </div>

@@ -42,6 +42,10 @@ interface AdminPanelProps {
   showToast: (msg: string, type: "success" | "error") => void;
   onShowModal: (title: string, body: React.ReactNode, actions: React.ReactNode) => void;
   onCloseModal: () => void;
+  autoPrintActive?: boolean;
+  setAutoPrintActive?: (val: boolean) => void;
+  soundAlertActive?: boolean;
+  setSoundAlertActive?: (val: boolean) => void;
 }
 
 interface ProductModalFormProps {
@@ -311,6 +315,10 @@ export function AdminPanel({
   showToast,
   onShowModal,
   onCloseModal,
+  autoPrintActive = false,
+  setAutoPrintActive,
+  soundAlertActive = true,
+  setSoundAlertActive,
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<"pedidos" | "produtos" | "config">("pedidos");
   const [productSubTab, setProductSubTab] = useState<"items" | "addons">("items");
@@ -328,6 +336,7 @@ export function AdminPanel({
   const [cfgIfoodKm, setCfgIfoodKm] = useState(config.ifoodKm);
   const [cfgMpPubKey, setCfgMpPubKey] = useState(config.mpPubKey || "");
   const [cfgMpAccessToken, setCfgMpAccessToken] = useState(config.mpAccessToken ? "••••••••••••••••" : "");
+  const [cfgNotificationWebhook, setCfgNotificationWebhook] = useState(config.notificationWebhook || "");
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [cfgBusinessHours, setCfgBusinessHours] = useState(() => {
     if (config.businessHours) {
@@ -425,6 +434,7 @@ export function AdminPanel({
       mpPubKey: cfgMpPubKey,
       mpAccessToken: finalMpAccessToken,
       businessHours: cfgBusinessHours,
+      notificationWebhook: cfgNotificationWebhook,
     });
     showToast("Configurações gravadas com sucesso!", "success");
   };
@@ -628,6 +638,43 @@ export function AdminPanel({
       {/* Tab 1: Orders Queue */}
       {activeTab === "pedidos" && (
         <div className="space-y-4">
+          {/* Automation Control Panel */}
+          <div className="bg-[#FF3D00]/5 border border-[#FF3D00]/15 rounded-[2rem] p-5 flex flex-col sm:flex-row gap-4 justify-between items-center text-left select-none">
+            <div className="flex items-center gap-3">
+              <div className="bg-[#FF3D00]/10 p-2.5 rounded-2xl text-[#FF3D00] shrink-0">
+                <Cpu className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-neutral-900 uppercase tracking-wider">Automação de Recebimento</h4>
+                <p className="text-[11px] text-stone-500 leading-normal mt-0.5">Ative sinais sonoros e envie cupons diretamente para a impressora assim que entrarem no sistema.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setSoundAlertActive?.(!soundAlertActive)}
+                className={`flex-1 sm:flex-none px-4 py-3 rounded-2xl text-xs font-black border transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
+                  soundAlertActive
+                    ? "bg-stone-900 text-white border-stone-900"
+                    : "bg-white text-stone-500 border-stone-200 hover:border-stone-300"
+                }`}
+              >
+                <span>{soundAlertActive ? "🔔 Som Ligado" : "🔕 Som Mudo"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAutoPrintActive?.(!autoPrintActive)}
+                className={`flex-1 sm:flex-none px-4 py-3 rounded-2xl text-xs font-black border transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
+                  autoPrintActive
+                    ? "bg-emerald-600 text-white border-emerald-600"
+                    : "bg-white text-stone-500 border-stone-200 hover:border-stone-300"
+                }`}
+              >
+                <span>{autoPrintActive ? "🖨️ Auto-Imprimir" : "🔇 Manual"}</span>
+              </button>
+            </div>
+          </div>
+
           <p className="text-xs text-stone-400 text-left">
             * Se a aba estiver aberta e conectada à nuvem, os pedidos serão listados de forma síncrona.
           </p>
@@ -983,6 +1030,22 @@ export function AdminPanel({
                 onChange={(e) => setCfgWhatsapp(e.target.value)}
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none"
               />
+            </div>
+
+            <div className="bg-[#FF3D00]/5 border border-[#FF3D00]/15 rounded-2xl p-4 space-y-2.5 text-left">
+              <label className="block text-[10px] font-bold tracking-wider uppercase text-stone-600">
+                🌐 URL de Webhook para Notificação Automática (Opcional)
+              </label>
+              <input
+                type="text"
+                value={cfgNotificationWebhook}
+                onChange={(e) => setCfgNotificationWebhook(e.target.value)}
+                placeholder="Ex: https://api.callmebot.com/whatsapp.php?phone=...&text=... ou Make/n8n"
+                className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-xs focus:outline-none placeholder-stone-400"
+              />
+              <p className="text-[10px] leading-relaxed text-stone-500">
+                <strong>Notificação Hands-Free:</strong> Se adicionado, o sistema enviará uma requisição POST automática para esta URL o segundo que o cliente pagar. Você pode usar ferramentas como n8n, Make/Integromat, Evolution API, Z-API ou o serviço gratuito <strong>CallMeBot</strong> para disparar alertas do pedido diretamente para seu celular sem que o cliente precise clicar em nada!
+              </p>
             </div>
 
             <div>

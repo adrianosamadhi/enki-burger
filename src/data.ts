@@ -78,4 +78,5 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
   storeLat: "-23.4477784",
   storeLon: "-46.6076214",
   businessHours: DEFAULT_BUSINESS_HOURS,
+  notificationWebhook: "",
 };

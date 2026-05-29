@@ -47,6 +47,7 @@ export interface StoreConfig {
   storeLon: string;
   businessHours?: any;
   productOrder?: string[];
+  notificationWebhook?: string;
 }
 
 export interface ClientProfile {
