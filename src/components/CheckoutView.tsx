@@ -19,7 +19,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { CartItem, StoreConfig, ClientProfile } from "../types";
-import { formatBRL, formatCEP, fetchAddressByCEP, getCartItemTotalPrice } from "../utils";
+import { formatBRL, formatCEP, fetchAddressByCEP, getCartItemTotalPrice, isStoreOpen } from "../utils";
 
 interface CheckoutViewProps {
   carrinho: Record<string, CartItem>;
@@ -702,6 +702,18 @@ export function CheckoutView({
       >
         <ArrowLeft className="w-4 h-4" /> Voltar ao Cardápio
       </button>
+
+      {!isStoreOpen(config.businessHours) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 sm:p-5 text-left flex gap-3.5 items-start shadow-sm">
+          <AlertTriangle className="w-5.5 h-5.5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="text-sm font-extrabold text-amber-800">Fechado no Momento</h4>
+            <p className="text-xs text-amber-700 leading-relaxed">
+              O estabelecimento encontra-se fora do horário de atendimento neste momento. Você ainda pode concluir e enviar seu pedido, mas observe que ele poderá ser visualizado ou preparado apenas no próximo período do expediente.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Cart Summary for Mobile view */}
       <div className="bg-white rounded-2xl border border-stone-100 p-3 sm:p-4 shadow-sm lg:hidden select-none">

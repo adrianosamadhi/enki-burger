@@ -6,6 +6,7 @@
 import React from "react";
 import { User, CookingPot } from "lucide-react";
 import { StoreConfig, ClientProfile } from "../types";
+import { isStoreOpen } from "../utils";
 
 interface HeaderProps {
   config: StoreConfig;
@@ -15,6 +16,8 @@ interface HeaderProps {
 }
 
 export function Header({ config, clientProfile, onProfileClick, onLogoClick }: HeaderProps) {
+  const isOpen = isStoreOpen(config.businessHours);
+
   return (
     <header className="bg-white text-neutral-950 sticky top-0 z-30 border-b border-stone-100 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -23,11 +26,11 @@ export function Header({ config, clientProfile, onProfileClick, onLogoClick }: H
           {config.storeLogoUrl && config.storeLogoUrl.trim() !== "" ? (
             <img
               src={config.storeLogoUrl.trim()}
-              className="h-11 w-auto object-contain"
+              className="h-13 sm:h-[52px] md:h-[56px] w-auto object-contain transition-all"
               alt={config.storeName}
             />
           ) : config.storeName.toLowerCase().includes("enki") ? (
-            <svg className="h-12 w-auto" viewBox="0 0 240 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg className="h-[58px] sm:h-[64px] md:h-[68px] w-auto transition-all" viewBox="0 0 240 70" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M 15,30 C 15,16 23,12 35,12 C 47,12 55,16 55,30 Z"
                 stroke="#FF3D00"
@@ -111,9 +114,15 @@ export function Header({ config, clientProfile, onProfileClick, onLogoClick }: H
 
         {/* Operating status badge and User Action */}
         <div className="flex items-center gap-3">
-          <span className="hidden md:flex bg-emerald-50 text-emerald-600 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider items-center gap-1.5 border border-emerald-100">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Aberto para pedidos
-          </span>
+          {isOpen ? (
+            <span className="hidden md:flex bg-emerald-50 text-emerald-600 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider items-center gap-1.5 border border-emerald-100">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Aberto para pedidos
+            </span>
+          ) : (
+            <span className="hidden md:flex bg-rose-50 text-rose-600 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider items-center gap-1.5 border border-rose-100">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Fechado no momento
+            </span>
+          )}
 
           <button
             id="btn-client-profile"

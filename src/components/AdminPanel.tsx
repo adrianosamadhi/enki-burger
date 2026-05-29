@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Order, Product, Addon, StoreConfig } from "../types";
 import { formatBRL, geocodeStoreAddress } from "../utils";
+import { DEFAULT_BUSINESS_HOURS } from "../data";
 
 interface AdminPanelProps {
   config: StoreConfig;
@@ -324,6 +325,14 @@ export function AdminPanel({
   const [cfgMpPubKey, setCfgMpPubKey] = useState(config.mpPubKey || "");
   const [cfgMpAccessToken, setCfgMpAccessToken] = useState(config.mpAccessToken || "");
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [cfgBusinessHours, setCfgBusinessHours] = useState(() => {
+    if (config.businessHours) {
+      return typeof config.businessHours === "string" 
+        ? JSON.parse(config.businessHours) 
+        : config.businessHours;
+    }
+    return DEFAULT_BUSINESS_HOURS;
+  });
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -403,6 +412,7 @@ export function AdminPanel({
       ifoodKm: Number(cfgIfoodKm) || 1.8,
       mpPubKey: cfgMpPubKey,
       mpAccessToken: cfgMpAccessToken,
+      businessHours: cfgBusinessHours,
     });
     showToast("Configurações gravadas com sucesso!", "success");
   };
@@ -999,6 +1009,83 @@ export function AdminPanel({
                     placeholder="Ex: APP_USR-..."
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Weekly Business Hours */}
+            <div className="border-t border-stone-100 pt-4">
+              <span className="text-[10px] font-bold tracking-wider uppercase text-stone-400 mb-2 block font-mono">
+                🕒 Horário de Atendimento Semanal
+              </span>
+              <p className="text-[11px] text-stone-500 mb-4 leading-relaxed">
+                Configure os dias em que a hamburgueria está aberta e os respectivos horários de atendimento. Pedidos fora destes horários serão informados no checkout.
+              </p>
+              
+              <div className="space-y-3">
+                {[
+                  { name: "Domingo", index: 0 },
+                  { name: "Segunda-feira", index: 1 },
+                  { name: "Terça-feira", index: 2 },
+                  { name: "Quarta-feira", index: 3 },
+                  { name: "Quinta-feira", index: 4 },
+                  { name: "Sexta-feira", index: 5 },
+                  { name: "Sábado", index: 6 },
+                ].map((d) => {
+                  const dayConfig = cfgBusinessHours[d.index] || { open: "18:00", close: "23:00", closed: false };
+                  
+                  return (
+                    <div key={d.index} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-stone-50 border border-stone-150/60 shadow-sm transition hover:border-stone-250">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${dayConfig.closed ? "bg-stone-300" : "bg-emerald-500 animate-pulse"}`}></div>
+                        <span className="text-xs font-extrabold text-stone-700 w-24">{d.name}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = { ...cfgBusinessHours };
+                            updated[d.index] = { ...dayConfig, closed: !dayConfig.closed };
+                            setCfgBusinessHours(updated);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition active:scale-95 cursor-pointer select-none ${
+                            dayConfig.closed
+                              ? "bg-stone-200 text-stone-505 border border-stone-300"
+                              : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                          }`}
+                        >
+                          {dayConfig.closed ? "🔒 Fechado" : "🟢 Aberto"}
+                        </button>
+                        
+                        {!dayConfig.closed && (
+                          <div className="flex items-center gap-1.5 text-stone-500 text-xs">
+                            <input
+                              type="time"
+                              value={dayConfig.open || "18:00"}
+                              onChange={(e) => {
+                                const updated = { ...cfgBusinessHours };
+                                updated[d.index] = { ...dayConfig, open: e.target.value };
+                                setCfgBusinessHours(updated);
+                              }}
+                              className="bg-white border border-stone-200 rounded-xl px-2 py-1.5 text-xs text-stone-700 focus:outline-none font-medium shadow-sm"
+                            />
+                            <span className="font-mono text-[9px] text-stone-400">às</span>
+                            <input
+                              type="time"
+                              value={dayConfig.close || "23:00"}
+                              onChange={(e) => {
+                                const updated = { ...cfgBusinessHours };
+                                updated[d.index] = { ...dayConfig, close: e.target.value };
+                                setCfgBusinessHours(updated);
+                              }}
+                              className="bg-white border border-stone-200 rounded-xl px-2 py-1.5 text-xs text-stone-700 focus:outline-none font-medium shadow-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

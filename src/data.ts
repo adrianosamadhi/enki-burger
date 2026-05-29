@@ -55,10 +55,20 @@ export const DEFAULT_ADDONS: Addon[] = [
   { id: "a4", nome: "Cebola Caramelizada", preco: 3.50, ativo: true },
 ];
 
+export const DEFAULT_BUSINESS_HOURS = {
+  0: { open: "18:00", close: "23:00", closed: false }, // Domingo
+  1: { open: "18:00", close: "23:00", closed: false }, // Segunda
+  2: { open: "18:00", close: "23:00", closed: false }, // Terça
+  3: { open: "18:00", close: "23:30", closed: false }, // Quarta
+  4: { open: "18:00", close: "23:30", closed: false }, // Quinta
+  5: { open: "18:00", close: "23:59", closed: false }, // Sexta
+  6: { open: "18:00", close: "23:59", closed: false }, // Sábado
+};
+
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
   whatsapp: "5511975372504",
   supabaseUrl: "https://amylompetctxeaeyioig.supabase.co",
-  supabaseKey: "sb_publishable_-i3Gye2VCW3W-LZFcksVaw_CA095Mhm",
+  supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFteWxvbXBldGN0eGVhZXlpb2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDc1ODAsImV4cCI6MjA5NTQ4MzU4MH0.KhQEC-EcfMQXiJ0KBg0nHM-1U1etJUHjIy524cVpKU4",
   ifoodBase: 7.90,
   ifoodKm: 1.80,
   mpPubKey: "",
@@ -67,4 +77,5 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
   storeAddress: "R. Luis de Oliveira Bulhões, 564",
   storeLat: "-23.4477784",
   storeLon: "-46.6076214",
+  businessHours: DEFAULT_BUSINESS_HOURS,
 };

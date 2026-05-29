@@ -200,3 +200,44 @@ export async function geocodeStoreAddress(address: string): Promise<{ lat: strin
   }
   return null;
 }
+
+export function isStoreOpen(businessHours?: any): boolean {
+  if (!businessHours) return true; // Default to open
+  
+  try {
+    // Get current date/time in America/Sao_Paulo timezone
+    const nowStr = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+    const localDate = new Date(nowStr);
+    
+    const day = localDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const currentHour = localDate.getHours();
+    const currentMinute = localDate.getMinutes();
+    const currentTimeVal = currentHour * 60 + currentMinute;
+    
+    const rawConfig = typeof businessHours === "string" ? JSON.parse(businessHours) : businessHours;
+    const dayConfig = rawConfig[day] || rawConfig[String(day)];
+    
+    if (!dayConfig) return true;
+    if (dayConfig.closed) return false;
+    
+    const [startH, startM] = dayConfig.open.split(":").map(Number);
+    const [endH, endM] = dayConfig.close.split(":").map(Number);
+    
+    const startTimeVal = startH * 60 + startM;
+    let endTimeVal = endH * 60 + endM;
+    
+    // Handle overnight schedules (e.g. 18:00 to 02:00)
+    if (endTimeVal < startTimeVal) {
+      if (currentTimeVal >= startTimeVal || currentTimeVal <= endTimeVal) {
+        return true;
+      }
+      return false;
+    } else {
+      // Normal daytime schedule (e.g. 18:00 to 23:30)
+      return currentTimeVal >= startTimeVal && currentTimeVal <= endTimeVal;
+    }
+  } catch (e) {
+    console.error("Error checking store status:", e);
+    return true; // Fallback to open
+  }
+}

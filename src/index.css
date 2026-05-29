@@ -4,6 +4,18 @@
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --animate-soft-pulse: soft-pulse 2.5s infinite ease-in-out;
+
+  @keyframes soft-pulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 10px 25px -5px rgba(37, 211, 102, 0.4), 0 8px 10px -6px rgba(37, 211, 102, 0.4);
+    }
+    50% {
+      transform: scale(1.06);
+      box-shadow: 0 20px 35px -5px rgba(37, 211, 102, 0.6), 0 10px 15px -5px rgba(37, 211, 102, 0.4);
+    }
+  }
 }
 
 /* Custom UI adjustments */
