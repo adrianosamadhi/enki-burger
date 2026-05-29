@@ -974,11 +974,14 @@ export function AdminPanel({
                 <div>
                   <label className="block text-[9px] font-bold text-stone-400 mb-0.5">Anon Public Key</label>
                   <input
-                    type="password"
+                    type="text"
+                    style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
                     value={cfgSupabaseKey}
                     onChange={(e) => setCfgSupabaseKey(e.target.value)}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none font-mono"
                     placeholder="eyJhbGciOi..."
+                    autoComplete="off"
+                    data-lpignore="true"
                   />
                 </div>
               </div>
@@ -1002,11 +1005,14 @@ export function AdminPanel({
                 <div>
                   <label className="block text-[9px] font-bold text-stone-400 mb-0.5">Token de Acesso do Mercado Pago (Access Token)</label>
                   <input
-                    type="password"
+                    type="text"
+                    style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
                     value={cfgMpAccessToken}
                     onChange={(e) => setCfgMpAccessToken(e.target.value)}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none font-mono"
                     placeholder="Ex: APP_USR-..."
+                    autoComplete="off"
+                    data-lpignore="true"
                   />
                 </div>
               </div>
