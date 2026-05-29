@@ -18,6 +18,8 @@ import {
   Grid,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Order, Product, Addon, StoreConfig } from "../types";
 import { formatBRL, geocodeStoreAddress } from "../utils";
@@ -419,9 +421,19 @@ export function AdminPanel({
     showToast("Configurações gravadas com sucesso!", "success");
   };
 
-  const handleMoveProduct = (index: number, direction: "up" | "down") => {
+  const handleMoveProduct = (index: number, direction: "up" | "down" | "left" | "right") => {
     const list = [...produtos];
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    let targetIndex = index;
+
+    if (direction === "left") {
+      targetIndex = index - 1;
+    } else if (direction === "right") {
+      targetIndex = index + 1;
+    } else if (direction === "up") {
+      targetIndex = index - 2;
+    } else if (direction === "down") {
+      targetIndex = index + 2;
+    }
     
     if (targetIndex < 0 || targetIndex >= list.length) return;
     
@@ -715,33 +727,71 @@ export function AdminPanel({
                   >
                     <div className="flex items-center min-w-0 flex-1">
                       {/* Controls for item arrangement */}
-                      <div className="flex flex-col items-center gap-0.5 border-r border-stone-100 pr-3 mr-3 shrink-0">
+                      <div className="grid grid-cols-3 gap-0.5 border-r border-stone-150 pr-3 mr-3 shrink-0 select-none">
+                        {/* Row 1 */}
+                        <div></div>
+                        <button
+                          type="button"
+                          disabled={idx - 2 < 0}
+                          onClick={() => handleMoveProduct(idx, "up")}
+                          className={`p-0.5 rounded transition flex items-center justify-center ${
+                            idx - 2 < 0
+                              ? "text-stone-200 cursor-not-allowed"
+                              : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
+                          }`}
+                          title="Subir uma linha (Vertical)"
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </button>
+                        <div></div>
+
+                        {/* Row 2 */}
                         <button
                           type="button"
                           disabled={idx === 0}
-                          onClick={() => handleMoveProduct(idx, "up")}
-                          className={`p-1 rounded-md transition ${
+                          onClick={() => handleMoveProduct(idx, "left")}
+                          className={`p-0.5 rounded transition flex items-center justify-center ${
                             idx === 0
                               ? "text-stone-200 cursor-not-allowed"
                               : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
                           }`}
-                          title="Subir Posição"
+                          title="Mover para esquerda"
                         >
-                          <ChevronUp className="w-4.5 h-4.5" />
+                          <ChevronLeft className="w-4 h-4" />
                         </button>
+                        <div className="flex items-center justify-center text-[10px] font-bold text-stone-500 font-mono min-w-[18px]">
+                          {idx + 1}
+                        </div>
                         <button
                           type="button"
                           disabled={idx === produtos.length - 1}
-                          onClick={() => handleMoveProduct(idx, "down")}
-                          className={`p-1 rounded-md transition ${
+                          onClick={() => handleMoveProduct(idx, "right")}
+                          className={`p-0.5 rounded transition flex items-center justify-center ${
                             idx === produtos.length - 1
                               ? "text-stone-200 cursor-not-allowed"
                               : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
                           }`}
-                          title="Descer Posição"
+                          title="Mover para direita"
                         >
-                          <ChevronDown className="w-4.5 h-4.5" />
+                          <ChevronRight className="w-4 h-4" />
                         </button>
+
+                        {/* Row 3 */}
+                        <div></div>
+                        <button
+                          type="button"
+                          disabled={idx + 2 >= produtos.length}
+                          onClick={() => handleMoveProduct(idx, "down")}
+                          className={`p-0.5 rounded transition flex items-center justify-center ${
+                            idx + 2 >= produtos.length
+                              ? "text-stone-200 cursor-not-allowed"
+                              : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
+                          }`}
+                          title="Descer uma linha (Vertical)"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                        <div></div>
                       </div>
 
                       <div className="truncate pr-2">
