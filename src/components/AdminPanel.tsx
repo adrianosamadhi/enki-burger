@@ -16,6 +16,8 @@ import {
   DollarSign,
   Settings,
   Grid,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { Order, Product, Addon, StoreConfig } from "../types";
 import { formatBRL, geocodeStoreAddress } from "../utils";
@@ -417,6 +419,26 @@ export function AdminPanel({
     showToast("Configurações gravadas com sucesso!", "success");
   };
 
+  const handleMoveProduct = (index: number, direction: "up" | "down") => {
+    const list = [...produtos];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+    
+    // Swap
+    const temp = list[index];
+    list[index] = list[targetIndex];
+    list[targetIndex] = temp;
+    
+    const newOrder = list.map((p) => p.id);
+    
+    onSaveConfig({
+      ...config,
+      productOrder: newOrder,
+    });
+    showToast("Ordem do cardápio atualizada!", "success");
+  };
+
   const handleOpenProductModal = (p: Product | null) => {
     const categories = Array.from(new Set(produtos.map(prod => prod.categoria))).filter(Boolean);
     const body = (
@@ -686,16 +708,53 @@ export function AdminPanel({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {produtos.map((p) => (
+                {produtos.map((p, idx) => (
                   <div
                     key={p.id}
-                    className="bg-white p-4 rounded-2xl border flex justify-between items-center text-left text-stone-900 shadow-sm"
+                    className="bg-white p-4 rounded-2xl border flex justify-between items-center text-left text-stone-900 shadow-sm transition-all duration-300"
                   >
-                    <div>
-                      <p className="text-xs font-bold">{p.nome}</p>
-                      <p className="text-[10px] text-[#FF3D00] font-bold mt-1">{formatBRL(p.preco)}</p>
+                    <div className="flex items-center min-w-0 flex-1">
+                      {/* Controls for item arrangement */}
+                      <div className="flex flex-col items-center gap-0.5 border-r border-stone-100 pr-3 mr-3 shrink-0">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => handleMoveProduct(idx, "up")}
+                          className={`p-1 rounded-md transition ${
+                            idx === 0
+                              ? "text-stone-200 cursor-not-allowed"
+                              : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
+                          }`}
+                          title="Subir Posição"
+                        >
+                          <ChevronUp className="w-4.5 h-4.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === produtos.length - 1}
+                          onClick={() => handleMoveProduct(idx, "down")}
+                          className={`p-1 rounded-md transition ${
+                            idx === produtos.length - 1
+                              ? "text-stone-200 cursor-not-allowed"
+                              : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
+                          }`}
+                          title="Descer Posição"
+                        >
+                          <ChevronDown className="w-4.5 h-4.5" />
+                        </button>
+                      </div>
+
+                      <div className="truncate pr-2">
+                        <p className="text-xs font-bold truncate text-stone-800">{p.nome}</p>
+                        <p className="text-[10px] text-[#FF3D00] font-bold mt-1.5 flex items-center gap-2">
+                          <span>{formatBRL(p.preco)}</span>
+                          <span className="text-[8px] uppercase tracking-wider text-stone-400 font-extrabold font-mono bg-stone-50 px-1.5 py-0.5 rounded border border-stone-150/40">
+                            {p.categoria}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => handleOpenProductModal(p)}
                         className="bg-stone-50 hover:bg-stone-100 border p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-stone-600"

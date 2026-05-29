@@ -46,6 +46,7 @@ export interface StoreConfig {
   storeLat: string;
   storeLon: string;
   businessHours?: any;
+  productOrder?: string[];
 }
 
 export interface ClientProfile {

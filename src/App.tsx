@@ -345,6 +345,9 @@ export default function App() {
           businessHours: configData.business_hours
             ? (typeof configData.business_hours === "string" ? JSON.parse(configData.business_hours) : configData.business_hours)
             : (config.businessHours || DEFAULT_STORE_CONFIG.businessHours),
+          productOrder: configData.product_order
+            ? (typeof configData.product_order === "string" ? JSON.parse(configData.product_order) : configData.product_order)
+            : (config.productOrder || []),
         };
         setConfig(mappedConfig);
         safeStorage.setItem("cardapio_config", JSON.stringify(mappedConfig));
@@ -459,11 +462,12 @@ export default function App() {
             store_lat: updated.storeLat,
             store_lon: updated.storeLon,
             business_hours: updated.businessHours ? JSON.stringify(updated.businessHours) : null,
+            product_order: updated.productOrder ? JSON.stringify(updated.productOrder) : null,
           });
 
         if (error && (error.message?.includes("column") || error.code === "PGRST204" || error.code === "42703")) {
-          console.warn("Coluna business_hours não existe no Supabase. Salvando apenas os campos padrão.");
-          const { error: retryError } = await supabaseClient
+          console.warn("Coluna product_order ou business_hours não existe no Supabase. Tentando sem product_order...");
+          let { error: retryError } = await supabaseClient
             .from("loja_config")
             .upsert({
               id: 1,
@@ -479,8 +483,32 @@ export default function App() {
               store_address: updated.storeAddress,
               store_lat: updated.storeLat,
               store_lon: updated.storeLon,
+              business_hours: updated.businessHours ? JSON.stringify(updated.businessHours) : null,
             });
-          error = retryError;
+          
+          if (retryError && (retryError.message?.includes("column") || retryError.code === "PGRST204" || retryError.code === "42703")) {
+            console.warn("Coluna business_hours também não existe. Tentando salvar apenas campos padrão.");
+            const { error: finalError } = await supabaseClient
+              .from("loja_config")
+              .upsert({
+                id: 1,
+                whatsapp: updated.whatsapp,
+                supabase_url: updated.supabaseUrl || "",
+                supabase_key: updated.supabaseKey || "",
+                ifood_base: updated.ifoodBase,
+                ifood_km: updated.ifoodKm,
+                mp_pub_key: updated.mpPubKey || "",
+                mp_access_token: updated.mpAccessToken || "",
+                store_name: updated.storeName,
+                store_logo_url: updated.storeLogoUrl || "",
+                store_address: updated.storeAddress,
+                store_lat: updated.storeLat,
+                store_lon: updated.storeLon,
+              });
+            error = finalError;
+          } else {
+            error = retryError;
+          }
         }
 
         if (error) {
@@ -1109,8 +1137,24 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
     setView("checkout");
   };
 
+  // Sorted products based on custom arrangement or deterministic id
+  const sortedProdutos = React.useMemo(() => {
+    const orderList = config.productOrder || [];
+    if (orderList.length === 0) {
+      return [...produtos].sort((a, b) => a.id.localeCompare(b.id));
+    }
+    return [...produtos].sort((a, b) => {
+      const idxA = orderList.indexOf(a.id);
+      const idxB = orderList.indexOf(b.id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.id.localeCompare(b.id);
+    });
+  }, [produtos, config.productOrder]);
+
   // Search filtering logic
-  const filteredProducts = produtos.filter((p) => {
+  const filteredProducts = sortedProdutos.filter((p) => {
     const matchQuery =
       p.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.descricao.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1235,7 +1279,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                   >
                     🍔 Todos os Itens
                   </button>
-                  {Array.from(new Set(produtos.map(p => p.categoria))).filter(Boolean).map(cat => (
+                  {Array.from(new Set(sortedProdutos.map(p => p.categoria))).filter(Boolean).map(cat => (
                     <button
                       key={cat}
                       onClick={() => setActiveCategory(cat)}
@@ -1366,7 +1410,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                 onSaveConfig={handleSaveConfig}
                 ordersHistory={ordersHistory}
                 onClearHistory={handleClearHistory}
-                produtos={produtos}
+                produtos={sortedProdutos}
                 onSaveProduct={handleSaveProduct}
                 onDeleteProduct={handleDeleteProduct}
                 adicionais={adicionais}
