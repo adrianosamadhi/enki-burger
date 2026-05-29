@@ -1816,7 +1816,8 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
             <h3 className="text-base font-bold text-neutral-950 mb-2 font-mono">Controle de Gerência</h3>
             <p className="text-xs text-stone-400 mb-4 text-left">Informe a chave do painel da hamburgueria:</p>
             <input
-              type="password"
+              type="text"
+              style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
               value={adminPasswordInput}
               onChange={(e) => setAdminPasswordInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdminVerify()}
@@ -1832,7 +1833,8 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
               }}
               className="w-full bg-stone-50 border p-3.5 rounded-xl text-center font-extrabold tracking-widest focus:outline-none focus:border-[#FF3D00]"
               placeholder="••••••••"
-              autoComplete="new-password"
+              autoComplete="off"
+              data-lpignore="true"
               autoFocus
             />
             <div className="flex justify-end gap-3 mt-5 pb-1">

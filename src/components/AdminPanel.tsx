@@ -323,11 +323,11 @@ export function AdminPanel({
   const [cfgStoreLat, setCfgStoreLat] = useState(config.storeLat);
   const [cfgStoreLon, setCfgStoreLon] = useState(config.storeLon);
   const [cfgSupabaseUrl, setCfgSupabaseUrl] = useState(config.supabaseUrl);
-  const [cfgSupabaseKey, setCfgSupabaseKey] = useState(config.supabaseKey);
+  const [cfgSupabaseKey, setCfgSupabaseKey] = useState(config.supabaseKey ? "••••••••••••••••" : "");
   const [cfgIfoodBase, setCfgIfoodBase] = useState(config.ifoodBase);
   const [cfgIfoodKm, setCfgIfoodKm] = useState(config.ifoodKm);
   const [cfgMpPubKey, setCfgMpPubKey] = useState(config.mpPubKey || "");
-  const [cfgMpAccessToken, setCfgMpAccessToken] = useState(config.mpAccessToken || "");
+  const [cfgMpAccessToken, setCfgMpAccessToken] = useState(config.mpAccessToken ? "••••••••••••••••" : "");
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [cfgBusinessHours, setCfgBusinessHours] = useState(() => {
     if (config.businessHours) {
@@ -403,6 +403,14 @@ export function AdminPanel({
       }
     }
 
+    const finalSupabaseKey = (cfgSupabaseKey && cfgSupabaseKey !== "••••••••••••••••")
+      ? cfgSupabaseKey
+      : (config.supabaseKey || "");
+
+    const finalMpAccessToken = (cfgMpAccessToken && cfgMpAccessToken !== "••••••••••••••••")
+      ? cfgMpAccessToken
+      : (config.mpAccessToken || "");
+
     onSaveConfig({
       storeName: cfgStoreName || "Cardápio Digital",
       storeLogoUrl: cfgStoreLogoUrl,
@@ -411,11 +419,11 @@ export function AdminPanel({
       storeLat: lat || "-23.564551",
       storeLon: lon || "-46.652150",
       supabaseUrl: cfgSupabaseUrl,
-      supabaseKey: cfgSupabaseKey,
+      supabaseKey: finalSupabaseKey,
       ifoodBase: Number(cfgIfoodBase) || 7.9,
       ifoodKm: Number(cfgIfoodKm) || 1.8,
       mpPubKey: cfgMpPubKey,
-      mpAccessToken: cfgMpAccessToken,
+      mpAccessToken: finalMpAccessToken,
       businessHours: cfgBusinessHours,
     });
     showToast("Configurações gravadas com sucesso!", "success");
@@ -1084,11 +1092,22 @@ export function AdminPanel({
                   <label className="block text-[9px] font-bold text-stone-400 mb-0.5">Anon Public Key</label>
                   <input
                     type="text"
-                    style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
+                    name="sb_anon_key_dummy"
+                    id="sb_anon_key_dummy"
                     value={cfgSupabaseKey}
+                    onFocus={() => {
+                      if (cfgSupabaseKey === "••••••••••••••••") {
+                        setCfgSupabaseKey("");
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!cfgSupabaseKey && config.supabaseKey) {
+                        setCfgSupabaseKey("••••••••••••••••");
+                      }
+                    }}
                     onChange={(e) => setCfgSupabaseKey(e.target.value)}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none font-mono"
-                    placeholder="eyJhbGciOi..."
+                    placeholder="Cole a Anon Public Key se quiser alterar..."
                     autoComplete="off"
                     data-lpignore="true"
                   />
@@ -1115,11 +1134,22 @@ export function AdminPanel({
                   <label className="block text-[9px] font-bold text-stone-400 mb-0.5">Token de Acesso do Mercado Pago (Access Token)</label>
                   <input
                     type="text"
-                    style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
+                    name="mp_access_token_dummy"
+                    id="mp_access_token_dummy"
                     value={cfgMpAccessToken}
+                    onFocus={() => {
+                      if (cfgMpAccessToken === "••••••••••••••••") {
+                        setCfgMpAccessToken("");
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!cfgMpAccessToken && config.mpAccessToken) {
+                        setCfgMpAccessToken("••••••••••••••••");
+                      }
+                    }}
                     onChange={(e) => setCfgMpAccessToken(e.target.value)}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none font-mono"
-                    placeholder="Ex: APP_USR-..."
+                    placeholder="Cole o Access Token se quiser alterar..."
                     autoComplete="off"
                     data-lpignore="true"
                   />
