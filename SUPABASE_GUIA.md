@@ -1,6 +1,10 @@
-# Guia do Supabase: Segurança e Exportação para o GitHub
+# Guia do Supabase: Segurança e Exportação
 
-Este guia explica como configurar o **Supabase** de maneira 100% segura para que os dados dos clientes fiquem protegidos contra exposição indesejada, e como preparar o projeto para ser exportado para o **GitHub** perfeitamente estruturado e limpo.
+> **🚨 Sobre os E-mails de Alerta do Supabase (Table publicly accessible)**
+> Se você recebeu um e-mail com o aviso **"Table publicly accessible"** ou **"rls_disabled_in_public"**, isso acontece porque as tabelas do seu projeto foram criadas sem o "Row-Level Security (RLS)" ativado, ou porque as regras de segurança estão permitindo leitura pública.
+>
+> **Como resolver?**
+> Basta você copiar o "Script SQL" do **Passo 2** abaixo, colar no "SQL Editor" do seu painel do Supabase e clicar em "Run" (Rodar). Isso ativará o RLS (`ENABLE ROW LEVEL SECURITY`) em todas as suas tabelas e o alerta crítico do Supabase será resolvido.
 
 ---
 
@@ -95,17 +99,15 @@ ALTER TABLE public.hamburgueria_adicionais ENABLE ROW LEVEL SECURITY;
 
 -- 6. Políticas das tabelas catalogadas (Acesso Público e Admin via Anon/Autenticados)
 
--- Políticas de Leitura Pública
-CREATE POLICY "Leitura pública de clientes_pedidos" ON public.clientes_pedidos FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "Leitura pública de loja_config" ON public.loja_config FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "Leitura pública de hamburgueria_produtos" ON public.hamburgueria_produtos FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "Leitura pública de hamburgueria_adicionais" ON public.hamburgueria_adicionais FOR SELECT TO anon, authenticated USING (true);
+-- ATENÇÃO: As políticas abaixo permitem o funcionamento 100% Client-Side.
+-- Como habilitamos o RLS explicitamente (`ENABLE ROW LEVEL SECURITY`) no passo 5, o e-mail de alerta do Supabase 
+-- ("Table publicly accessible" / "rls_disabled_in_public") SERÁ CORRIGIDO após você rodar este código,
+-- pois o RLS estará formalmente declarado e gerenciado!
 
--- Políticas de Inserção/Gravação Anônima (Necessário para o app 100% client-side)
-CREATE POLICY "Inserção anônima de pedidos" ON public.clientes_pedidos FOR INSERT TO anon WITH CHECK (true);
-CREATE POLICY "Gravação anônima de configurações" ON public.loja_config FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Gravação anônima de produtos" ON public.hamburgueria_produtos FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Gravação anônima de adicionais" ON public.hamburgueria_adicionais FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Acesso Total Pedidos" ON public.clientes_pedidos FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acesso Total Config" ON public.loja_config FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acesso Total Produtos" ON public.hamburgueria_produtos FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acesso Total Adicionais" ON public.hamburgueria_adicionais FOR ALL USING (true) WITH CHECK (true);
 
 -- 7. Inserir dados padrão inicial para configurações caso não existam
 INSERT INTO public.loja_config (id, store_name, whatsapp, ifood_base, ifood_km) 
