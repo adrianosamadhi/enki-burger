@@ -9,6 +9,7 @@ export interface Product {
   nome: string;
   descricao: string;
   preco: number;
+  precoOriginal?: number;
   img: string;
   adicionaisPermitidos?: string[];
 }

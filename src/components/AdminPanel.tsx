@@ -67,6 +67,9 @@ export function ProductModalForm({
 }: ProductModalFormProps) {
   const [name, setName] = useState(product ? product.nome : "");
   const [price, setPrice] = useState(product ? product.preco : 0);
+  const [priceOriginal, setPriceOriginal] = useState<string>(
+    product && product.precoOriginal ? product.precoOriginal.toString() : ""
+  );
   
   const initialCat = product ? product.categoria : existingCategories.length > 0 ? existingCategories[0] : "Burgers Artesanais";
   const catIsExisting = existingCategories.includes(initialCat);
@@ -112,6 +115,7 @@ export function ProductModalForm({
       id: product ? product.id : "p_" + Date.now(),
       nome: name,
       preco: Number(price),
+      precoOriginal: priceOriginal ? Number(priceOriginal) : undefined,
       descricao: desc,
       categoria: finalCategory,
       img: img || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80",
@@ -134,19 +138,34 @@ export function ProductModalForm({
           placeholder="Ex: Cheddar Blast Duplo"
         />
       </div>
-      <div>
-        <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-          Preço de Venda (R$)
-        </label>
-        <input
-          type="number"
-          step="0.01"
-          required
-          value={price || ""}
-          onChange={(e) => setPrice(Number(e.target.value))}
-          className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00]"
-          placeholder="0.00"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
+            Preço de Venda (R$)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            required
+            value={price || ""}
+            onChange={(e) => setPrice(Number(e.target.value))}
+            className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00]"
+            placeholder="0.00"
+          />
+        </div>
+        <div>
+          <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1 flex items-center justify-between">
+            <span>Preço Original (De... R$) <span className="text-stone-400 font-normal lowercase">(opcional)</span></span>
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={priceOriginal}
+            onChange={(e) => setPriceOriginal(e.target.value)}
+            className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00]"
+            placeholder="Ex: 39.90"
+          />
+        </div>
       </div>
       <div>
         <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
@@ -298,6 +317,16 @@ export function ProductModalForm({
   );
 }
 
+const parseDateBR = (dateStr: string) => {
+  try {
+    const [datePart] = dateStr.includes(",") ? dateStr.split(",") : dateStr.split(" ");
+    const [d, m, y] = datePart.trim().split("/");
+    return new Date(Number(y), Number(m) - 1, Number(d));
+  } catch (e) {
+    return new Date();
+  }
+};
+
 export function AdminPanel({
   config,
   onSaveConfig,
@@ -320,8 +349,9 @@ export function AdminPanel({
   soundAlertActive = true,
   setSoundAlertActive,
 }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"pedidos" | "produtos" | "config">("pedidos");
+  const [activeTab, setActiveTab] = useState<"pedidos" | "produtos" | "metricas" | "config">("pedidos");
   const [productSubTab, setProductSubTab] = useState<"items" | "addons">("items");
+  const [metricsPeriod, setMetricsPeriod] = useState<"hoje" | "semana" | "mes" | "tudo">("hoje");
 
   // Config bindings
   const [cfgStoreName, setCfgStoreName] = useState(config.storeName);
@@ -346,6 +376,32 @@ export function AdminPanel({
     }
     return DEFAULT_BUSINESS_HOURS;
   });
+
+  // Metric calculations
+  const filteredOrders = React.useMemo(() => {
+    const now = new Date();
+    return ordersHistory.filter(o => {
+      const orderDate = parseDateBR(o.dataHora);
+      const diffTime = Math.abs(now.getTime() - orderDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      switch (metricsPeriod) {
+        case "hoje":
+          return diffDays <= 1;
+        case "semana":
+          return diffDays <= 7;
+        case "mes":
+          return diffDays <= 30;
+        case "tudo":
+        default:
+          return true;
+      }
+    });
+  }, [ordersHistory, metricsPeriod]);
+
+  const totalOrders = filteredOrders.length;
+  const totalRevenue = filteredOrders.reduce((acc, o) => acc + o.total, 0);
+  const avgTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -602,20 +658,20 @@ export function AdminPanel({
         </div>
       </div>
 
-      <div className="flex border-b border-stone-200 bg-stone-100 p-1.5 rounded-2xl select-none">
+      <div className="flex border-b border-stone-200 bg-stone-100 p-1.5 rounded-2xl select-none overflow-x-auto hide-scrollbar gap-1">
         <button
           onClick={() => setActiveTab("pedidos")}
-          className={`flex-1 py-3 text-xs font-bold text-center rounded-xl transition cursor-pointer ${
+          className={`flex-1 min-w-[120px] py-3 text-xs font-bold text-center rounded-xl transition cursor-pointer ${
             activeTab === "pedidos"
               ? "bg-white text-neutral-950 shadow-sm border border-stone-200/50"
               : "text-stone-500 hover:text-neutral-950"
           }`}
         >
-          📋 Pedidos Recebidos
+          📋 Pedidos
         </button>
         <button
           onClick={() => setActiveTab("produtos")}
-          className={`flex-1 py-3 text-xs font-bold text-center rounded-xl transition cursor-pointer ${
+          className={`flex-1 min-w-[120px] py-3 text-xs font-bold text-center rounded-xl transition cursor-pointer ${
             activeTab === "produtos"
               ? "bg-white text-neutral-950 shadow-sm border border-stone-200/50"
               : "text-stone-500 hover:text-neutral-950"
@@ -624,8 +680,18 @@ export function AdminPanel({
           🍔 Cardápio
         </button>
         <button
+          onClick={() => setActiveTab("metricas")}
+          className={`flex-1 min-w-[120px] py-3 text-xs font-bold text-center rounded-xl transition cursor-pointer ${
+            activeTab === "metricas"
+              ? "bg-white text-neutral-950 shadow-sm border border-stone-200/50"
+              : "text-stone-500 hover:text-neutral-950"
+          }`}
+        >
+          📈 Métricas
+        </button>
+        <button
           onClick={() => setActiveTab("config")}
-          className={`flex-1 py-3 text-xs font-bold text-center rounded-xl transition cursor-pointer ${
+          className={`flex-1 min-w-[120px] py-3 text-xs font-bold text-center rounded-xl transition cursor-pointer ${
             activeTab === "config"
               ? "bg-white text-neutral-950 shadow-sm border border-stone-200/50"
               : "text-stone-500 hover:text-neutral-950"
@@ -851,8 +917,13 @@ export function AdminPanel({
 
                       <div className="truncate pr-2">
                         <p className="text-xs font-bold truncate text-stone-800">{p.nome}</p>
-                        <p className="text-[10px] text-[#FF3D00] font-bold mt-1.5 flex items-center gap-2">
+                        <p className="text-[10px] text-[#FF3D00] font-bold mt-1.5 flex items-center gap-2 flex-wrap">
                           <span>{formatBRL(p.preco)}</span>
+                          {p.precoOriginal && p.precoOriginal > p.preco && (
+                            <span className="text-stone-400 text-[9px] line-through font-normal">
+                              {formatBRL(p.precoOriginal)}
+                            </span>
+                          )}
                           <span className="text-[8px] uppercase tracking-wider text-stone-400 font-extrabold font-mono bg-stone-50 px-1.5 py-0.5 rounded border border-stone-150/40">
                             {p.categoria}
                           </span>
@@ -938,6 +1009,87 @@ export function AdminPanel({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab: Metrics */}
+      {activeTab === "metricas" && (
+        <div className="space-y-4 font-sans text-left">
+          <div className="bg-white rounded-3xl border border-stone-100 p-5 shadow-sm space-y-5">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h2 className="text-base font-bold text-neutral-950">Desempenho de Vendas</h2>
+                <p className="text-xs text-stone-400">Acompanhe as métricas e o volume de pedidos.</p>
+              </div>
+              <div className="flex p-1 bg-stone-100 rounded-xl select-none w-full md:w-auto overflow-x-auto hide-scrollbar">
+                <button
+                  onClick={() => setMetricsPeriod("hoje")}
+                  className={`flex-1 md:flex-none px-4 py-2 text-[10px] font-bold rounded-lg transition-all ${
+                    metricsPeriod === "hoje" ? "bg-white text-[#FF3D00] shadow-sm" : "text-stone-500 hover:text-stone-900"
+                  }`}
+                >
+                  Hoje
+                </button>
+                <button
+                  onClick={() => setMetricsPeriod("semana")}
+                  className={`flex-1 md:flex-none px-4 py-2 text-[10px] font-bold rounded-lg transition-all ${
+                    metricsPeriod === "semana" ? "bg-white text-[#FF3D00] shadow-sm" : "text-stone-500 hover:text-stone-900"
+                  }`}
+                >
+                  7 Dias
+                </button>
+                <button
+                  onClick={() => setMetricsPeriod("mes")}
+                  className={`flex-1 md:flex-none px-4 py-2 text-[10px] font-bold rounded-lg transition-all ${
+                    metricsPeriod === "mes" ? "bg-white text-[#FF3D00] shadow-sm" : "text-stone-500 hover:text-stone-900"
+                  }`}
+                >
+                  30 Dias
+                </button>
+                <button
+                  onClick={() => setMetricsPeriod("tudo")}
+                  className={`flex-1 md:flex-none px-4 py-2 text-[10px] font-bold rounded-lg transition-all ${
+                    metricsPeriod === "tudo" ? "bg-white text-[#FF3D00] shadow-sm" : "text-stone-500 hover:text-stone-900"
+                  }`}
+                >
+                  Tudo
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-stone-50 p-5 rounded-2xl border border-stone-100">
+                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1">
+                  <Grid className="w-3.5 h-3.5" /> Total de Pedidos
+                </span>
+                <p className="text-3xl font-black text-neutral-900 mt-2">{totalOrders}</p>
+              </div>
+              <div className="bg-stone-50 p-5 rounded-2xl border border-stone-100">
+                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1">
+                  <DollarSign className="w-3.5 h-3.5" /> Receita Total
+                </span>
+                <p className="text-3xl font-black text-[#FF3D00] mt-2">{formatBRL(totalRevenue)}</p>
+              </div>
+              <div className="bg-stone-50 p-5 rounded-2xl border border-stone-100">
+                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1">
+                  <DollarSign className="w-3.5 h-3.5" /> Ticket Médio
+                </span>
+                <p className="text-3xl font-black text-stone-700 mt-2">{formatBRL(avgTicket)}</p>
+              </div>
+            </div>
+            
+            {filteredOrders.length > 0 && (
+              <div className="mt-8 border-t border-stone-100 pt-5 text-center">
+                <p className="text-xs text-stone-400 font-medium">Os últimos pedidos do período selecionado também podem ser listados na aba de pedidos (sem filtros restritos).</p>
+              </div>
+            )}
+            
+            {filteredOrders.length === 0 && (
+              <div className="mt-8 p-8 border-2 border-dashed border-stone-100 rounded-2xl text-center">
+                <p className="text-sm font-bold text-stone-400">Nenhum pedido processado no período selecionado.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

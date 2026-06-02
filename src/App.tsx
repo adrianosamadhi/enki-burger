@@ -1749,7 +1749,26 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                 <h3 className="font-black text-neutral-950 text-xl md:text-2xl tracking-tight">
                   {activeProductDetail.nome}
                 </h3>
-                <p className="text-xs md:text-sm text-stone-500 leading-relaxed mt-2 bg-stone-50 p-3 rounded-2xl border border-stone-100">
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                  {activeProductDetail.precoOriginal && activeProductDetail.precoOriginal > activeProductDetail.preco ? (
+                    <>
+                      <span className="text-[#FF3D00] font-black text-base md:text-lg">
+                        {formatBRL(activeProductDetail.preco)}
+                      </span>
+                      <span className="text-stone-400 text-xs line-through">
+                        {formatBRL(activeProductDetail.precoOriginal)}
+                      </span>
+                      <span className="bg-[#FFECE5] text-[#FF3D00] text-[10px] font-extrabold px-2 py-0.5 rounded-lg">
+                        {Math.round(((activeProductDetail.precoOriginal - activeProductDetail.preco) / activeProductDetail.precoOriginal) * 100)}% de Desconto 🔥
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-[#FF3D00] font-black text-base md:text-lg">
+                      {formatBRL(activeProductDetail.preco)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs md:text-sm text-stone-500 leading-relaxed mt-3.5 bg-stone-50 p-3 rounded-2xl border border-stone-100">
                   {activeProductDetail.descricao}
                 </p>
               </div>
