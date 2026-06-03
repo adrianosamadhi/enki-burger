@@ -1,4 +1,4 @@
-const CACHE_NAME = 'menu-digital-cache-v15';
+const CACHE_NAME = 'menu-digital-cache-v16';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
