@@ -2492,24 +2492,24 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                 <p className="text-stone-600 leading-relaxed text-[11px] mb-2 font-sans">
                   Você pode instalar diretamente ou clicar no botão de menu de 3 pontinhos do navegador e selecionar "Instalar aplicativo".
                 </p>
-                {deferredPrompt && (
-                  <button
-                    onClick={async () => {
-                      if (deferredPrompt) {
-                        deferredPrompt.prompt();
-                        const { outcome } = await deferredPrompt.userChoice;
-                        if (outcome === "accepted") {
-                          setDeferredPrompt(null);
-                          setShowPwaInstallModal(false);
-                          showToast("Aplicativo instalado com sucesso!", "success");
-                        }
+                <button
+                  onClick={async () => {
+                    if (deferredPrompt) {
+                      deferredPrompt.prompt();
+                      const { outcome } = await deferredPrompt.userChoice;
+                      if (outcome === "accepted") {
+                        setDeferredPrompt(null);
+                        setShowPwaInstallModal(false);
+                        showToast("Aplicativo instalado com sucesso!", "success");
                       }
-                    }}
-                    className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 shadow"
-                  >
-                    Instalar Agora
-                  </button>
-                )}
+                    } else {
+                      showToast("Você já instalou, ou o seu navegador requer instalação pelo menu de opções.", "error");
+                    }
+                  }}
+                  className="w-full bg-black mt-3 hover:bg-neutral-800 text-white font-bold py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 shadow"
+                >
+                  Instalar Agora
+                </button>
               </div>
             </div>
 
