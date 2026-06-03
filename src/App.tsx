@@ -2490,7 +2490,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                   🔵 No Android / PC (Chrome):
                 </span>
                 <p className="text-stone-600 leading-relaxed text-[11px] mb-2 font-sans">
-                  Você pode instalar diretamente ou clicar no botão de menu de 3 pontinhos do navegador e selecionar "Instalar aplicativo".
+                  No celular (Android), clique no menu de 3 pontinhos do navegador e selecione "Instalar aplicativo". No PC, clique no ícone de instalação (um monitor com uma seta) no lado direito da barra de endereços.
                 </p>
                 <button
                   onClick={async () => {
