@@ -12,6 +12,7 @@ export interface Product {
   precoOriginal?: number;
   img: string;
   adicionaisPermitidos?: string[];
+  isActive?: boolean;
 }
 
 export interface Addon {

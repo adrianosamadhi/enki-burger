@@ -479,7 +479,8 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
           descricao: p.descricao || "",
           preco: Number(p.preco),
           img: p.img || "",
-          adicionaisPermitidos: p.adicionais_permitidos || []
+          adicionaisPermitidos: p.adicionais_permitidos || [],
+          isActive: p.is_active !== undefined ? !!p.is_active : true
         }));
         setProdutos(mappedProducts);
       } else {
@@ -659,7 +660,8 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
             descricao: updated.descricao || "",
             preco: Number(updated.preco),
             img: updated.img || "",
-            adicionais_permitidos: updated.adicionaisPermitidos || []
+            adicionais_permitidos: updated.adicionaisPermitidos || [],
+            is_active: updated.isActive !== undefined ? !!updated.isActive : true
           });
         if (error) {
           console.error("Erro ao sincronizar produto no Supabase:", error);

@@ -916,7 +916,18 @@ export function AdminPanel({
                       </div>
 
                       <div className="truncate pr-2">
-                        <p className="text-xs font-bold truncate text-stone-800">{p.nome}</p>
+                        <p className="text-xs font-bold truncate text-stone-800 flex items-center gap-1.5">
+                          {p.nome}
+                          <span
+                            className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border ${
+                              p.isActive !== false
+                                ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                : "bg-stone-100 text-stone-400"
+                            }`}
+                          >
+                            {p.isActive !== false ? "Disponível" : "Pausado"}
+                          </span>
+                        </p>
                         <p className="text-[10px] text-[#FF3D00] font-bold mt-1.5 flex items-center gap-2 flex-wrap">
                           <span>{formatBRL(p.preco)}</span>
                           {p.precoOriginal && p.precoOriginal > p.preco && (
@@ -931,6 +942,16 @@ export function AdminPanel({
                       </div>
                     </div>
                     <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => {
+                          const updated = { ...p, isActive: p.isActive === false ? true : false };
+                          onSaveProduct(updated);
+                          showToast(updated.isActive ? "Produto Reativado!" : "Produto Pausado temporariamente.", "success");
+                        }}
+                        className="bg-stone-50 hover:bg-stone-100 border p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-stone-600"
+                      >
+                        {p.isActive !== false ? "Pausar" : "Ativar"}
+                      </button>
                       <button
                         onClick={() => handleOpenProductModal(p)}
                         className="bg-stone-50 hover:bg-stone-100 border p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-stone-600"
@@ -988,6 +1009,16 @@ export function AdminPanel({
                       <p className="text-[10px] text-[#FF3D00] font-bold mt-1">{formatBRL(a.preco)}</p>
                     </div>
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const updated = { ...a, ativo: !a.ativo };
+                          onSaveAddon(updated);
+                          showToast(updated.ativo ? "Adicional Reativado!" : "Adicional Pausado temporariamente.", "success");
+                        }}
+                        className="bg-stone-50 hover:bg-stone-100 border p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-stone-600"
+                      >
+                        {a.ativo ? "Pausar" : "Ativar"}
+                      </button>
                       <button
                         onClick={() => handleOpenAddonModal(a)}
                         className="bg-stone-50 hover:bg-stone-100 border p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-stone-600"
