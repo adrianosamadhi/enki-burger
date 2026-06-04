@@ -4,8 +4,8 @@
   "description": "Seu cardápio interativo rápido de alta fidelidade",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#171717",
-  "theme_color": "#171717",
+  "background_color": "#FAFAFA",
+  "theme_color": "#FAFAFA",
   "orientation": "portrait",
   "icons": [
     {
