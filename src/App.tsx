@@ -478,6 +478,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
           nome: p.nome,
           descricao: p.descricao || "",
           preco: Number(p.preco),
+          precoOriginal: p.preco_original ? Number(p.preco_original) : undefined,
           img: p.img || "",
           adicionaisPermitidos: p.adicionais_permitidos || [],
           isActive: p.is_active !== undefined ? !!p.is_active : true
@@ -657,6 +658,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
           nome: updated.nome,
           descricao: updated.descricao || "",
           preco: Number(updated.preco),
+          preco_original: updated.precoOriginal ? Number(updated.precoOriginal) : null,
           img: updated.img || "",
           adicionais_permitidos: updated.adicionaisPermitidos || [],
           is_active: updated.isActive !== undefined ? !!updated.isActive : true
@@ -803,10 +805,25 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     if (change > 0) {
       const prod = produtos.find((p) => p.id === id);
       if (prod) {
-        setActiveProductDetail(prod);
-        setProductDetailNotes("");
-        setProductDetailQty(1);
-        setSelectedAddons({});
+        setCarrinho((prev) => {
+          const cartKey = prod.id;
+          const exists = prev[cartKey];
+          const newQty = exists ? exists.qtd + change : change;
+          return {
+            ...prev,
+            [cartKey]: {
+              cartKey,
+              id: prod.id,
+              nome: prod.nome,
+              preco: prod.preco,
+              qtd: newQty,
+              observacoes: "",
+              img: prod.img,
+              adicionais: exists ? exists.adicionais : [],
+            },
+          };
+        });
+        showToast(`1x ${prod.nome} adicionado!`, "success");
       }
       return;
     }
@@ -1114,6 +1131,16 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     }, 2000);
   };
 
+  const handleAdvanceToCheckout = () => {
+    const activeAddons = adicionais.filter((a) => a.ativo);
+    if (activeAddons.length > 0 && view !== "checkout") {
+      setUpsellQuantities({});
+      setUpsellModalOpen(true);
+    } else {
+      setReviewOrderModalOpen(true);
+    }
+  };
+
   const executeCheckoutSubmit = () => {
     window.dispatchEvent(new CustomEvent("sidebar-checkout-submit"));
   };
@@ -1323,7 +1350,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
 
     setUpsellModalOpen(false);
     setUpsellQuantities({});
-    setView("checkout");
+    setReviewOrderModalOpen(true);
   };
 
   // Sorted products based on custom arrangement or deterministic id
@@ -1638,7 +1665,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
             deliveryType={deliveryType}
             onDecrease={(key) => changeCartQtyByKey(key, -1)}
             onIncrease={(key) => changeCartQtyByKey(key, 1)}
-            onAdvance={() => setReviewOrderModalOpen(true)}
+            onAdvance={handleAdvanceToCheckout}
             onSubmit={executeCheckoutSubmit}
             isCheckoutView={view === "checkout"}
           />
@@ -1704,7 +1731,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
               </div>
             </div>
             <button
-              onClick={() => setReviewOrderModalOpen(true)}
+              onClick={handleAdvanceToCheckout}
               className="flex-1 bg-black hover:bg-neutral-800 text-white font-black py-3.5 px-5 rounded-2xl shadow-lg transition flex items-center justify-center gap-1.5 text-xs cursor-pointer active:scale-95 text-center uppercase tracking-wider"
             >
               Comprar <ArrowRight className="w-4 h-4" />
@@ -2003,7 +2030,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                   onClick={() => {
                     setUpsellModalOpen(false);
                     setUpsellQuantities({});
-                    setView("checkout");
+                    setReviewOrderModalOpen(true);
                   }}
                   className="px-4 py-2 font-bold text-xs text-stone-500 hover:text-stone-700 cursor-pointer font-sans"
                 >
