@@ -668,8 +668,9 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
           .from("hamburgueria_produtos")
           .upsert(payload);
 
-        if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes("is_active") || error.message?.includes("column"))) {
+        if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes("is_active") || error.message?.includes("preco_original") || error.message?.includes("column"))) {
           delete payload.is_active;
+          delete payload.preco_original;
           const fb = await supabaseClient.from("hamburgueria_produtos").upsert(payload);
           error = fb.error;
         }

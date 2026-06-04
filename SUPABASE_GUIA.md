@@ -36,9 +36,9 @@ Isso garante que:
 * **Nenhum visitante anônimo** pode **listar (SELECT)** ou ler os pedidos acumulados de outras pessoas.
 * **O painel administrativo** pode buscar e visualizar os pedidos com segurança.
 
-### 💻 2.1 Como corrigir o erro "is_active" ou "ativo" ao pausar produtos
+### 💻 2.1 Como corrigir os erros "is_active", "ativo" ou "preco_original" no Supabase
 
-Se você estiver recebendo um erro ao pausar ou ativar produtos, é porque faltou adicionar uma pequena coluna na sua tabela no banco de dados.
+Se você estiver recebendo um erro ao editar, pausar ou salvar produtos (ex: "Could not find the 'preco_original' column"), é porque as novas colunas ainda precisam ser adicionadas ao seu banco de dados.
 
 Copie e cole este pequeno script no **SQL Editor** do Supabase e clique em **Run**:
 
@@ -46,11 +46,17 @@ Copie e cole este pequeno script no **SQL Editor** do Supabase e clique em **Run
 -- Adiciona a coluna is_active para pausar/ativar produtos
 ALTER TABLE public.hamburgueria_produtos ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
 
+-- Adiciona a coluna preco_original para suportar produtos com desconto (Upsells)
+ALTER TABLE public.hamburgueria_produtos ADD COLUMN IF NOT EXISTS preco_original numeric;
+
 -- Adiciona a coluna ativo para pausar/ativar adicionais
 ALTER TABLE public.hamburgueria_adicionais ADD COLUMN IF NOT EXISTS ativo boolean DEFAULT true;
+
+-- ATUALIZA O CACHE PARA EXCLUIR ERROS NO PAINEL E NO APP
+NOTIFY pgrst, 'reload schema';
 ```
 
-Essa é a correção **definitiva** no banco de dados. Esvazie o cache e atualize o painel após rodar!
+Essa é a correção **definitiva** no banco de dados. Atualize o painel do seu app após rodar!
 
 ---
 
@@ -98,6 +104,7 @@ CREATE TABLE IF NOT EXISTS public.hamburgueria_produtos (
     nome text NOT NULL,
     descricao text DEFAULT '',
     preco numeric NOT NULL,
+    preco_original numeric,
     img text DEFAULT '',
     adicionais_permitidos text[] DEFAULT '{}'::text[],
     is_active boolean DEFAULT true
