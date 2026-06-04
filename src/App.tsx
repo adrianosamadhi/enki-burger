@@ -627,7 +627,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
 
         if (error) {
           console.error("Erro de sincronização da loja_config no Supabase:", error);
-          showToast("Salvo localmente. Erro no Supabase.", "error");
+          showToast(`Salvo localmente. Erro Supabase: ${error.message || "Desconhecido"}`, "error");
         } else {
           showToast("Configurações sincronizadas com Supabase!", "success");
         }
@@ -651,21 +651,30 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
 
     if (supabaseClient) {
       try {
-        const { error } = await supabaseClient
+        let payload: any = {
+          id: updated.id,
+          categoria: updated.categoria,
+          nome: updated.nome,
+          descricao: updated.descricao || "",
+          preco: Number(updated.preco),
+          img: updated.img || "",
+          adicionais_permitidos: updated.adicionaisPermitidos || [],
+          is_active: updated.isActive !== undefined ? !!updated.isActive : true
+        };
+        
+        let { error } = await supabaseClient
           .from("hamburgueria_produtos")
-          .upsert({
-            id: updated.id,
-            categoria: updated.categoria,
-            nome: updated.nome,
-            descricao: updated.descricao || "",
-            preco: Number(updated.preco),
-            img: updated.img || "",
-            adicionais_permitidos: updated.adicionaisPermitidos || [],
-            is_active: updated.isActive !== undefined ? !!updated.isActive : true
-          });
+          .upsert(payload);
+
+        if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes("is_active") || error.message?.includes("column"))) {
+          delete payload.is_active;
+          const fb = await supabaseClient.from("hamburgueria_produtos").upsert(payload);
+          error = fb.error;
+        }
+
         if (error) {
           console.error("Erro ao sincronizar produto no Supabase:", error);
-          showToast("Salvo localmente. Erro no Supabase.", "error");
+          showToast(`Salvo localmente. Erro Supabase: ${error.message || "Desconhecido"}`, "error");
         } else {
           showToast("Produto sincronizado com Supabase!", "success");
         }
@@ -713,17 +722,26 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
 
     if (supabaseClient) {
       try {
-        const { error } = await supabaseClient
+        let payload: any = {
+          id: updated.id,
+          nome: updated.nome,
+          preco: Number(updated.preco),
+          ativo: !!updated.ativo
+        };
+        
+        let { error } = await supabaseClient
           .from("hamburgueria_adicionais")
-          .upsert({
-            id: updated.id,
-            nome: updated.nome,
-            preco: Number(updated.preco),
-            ativo: !!updated.ativo
-          });
+          .upsert(payload);
+
+        if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes("ativo") || error.message?.includes("column"))) {
+          delete payload.ativo;
+          const fb = await supabaseClient.from("hamburgueria_adicionais").upsert(payload);
+          error = fb.error;
+        }
+
         if (error) {
           console.error("Erro ao sincronizar adicional no Supabase:", error);
-          showToast("Salvo localmente. Erro no Supabase.", "error");
+          showToast(`Salvo localmente. Erro Supabase: ${error.message || "Desconhecido"}`, "error");
         } else {
           showToast("Adicional sincronizado com Supabase!", "success");
         }

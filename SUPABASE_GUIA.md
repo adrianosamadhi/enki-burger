@@ -36,7 +36,26 @@ Isso garante que:
 * **Nenhum visitante anônimo** pode **listar (SELECT)** ou ler os pedidos acumulados de outras pessoas.
 * **O painel administrativo** pode buscar e visualizar os pedidos com segurança.
 
-### 💻 Script SQL para Rodar no Editor SQL do Supabase:
+### 💻 2.1 Como corrigir o erro "is_active" ou "ativo" ao pausar produtos
+
+Se você estiver recebendo um erro ao pausar ou ativar produtos, é porque faltou adicionar uma pequena coluna na sua tabela no banco de dados.
+
+Copie e cole este pequeno script no **SQL Editor** do Supabase e clique em **Run**:
+
+```sql
+-- Adiciona a coluna is_active para pausar/ativar produtos
+ALTER TABLE public.hamburgueria_produtos ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+
+-- Adiciona a coluna ativo para pausar/ativar adicionais
+ALTER TABLE public.hamburgueria_adicionais ADD COLUMN IF NOT EXISTS ativo boolean DEFAULT true;
+```
+
+Essa é a correção **definitiva** no banco de dados. Esvazie o cache e atualize o painel após rodar!
+
+---
+
+### 💻 Script SQL para Criação Completa (Rodar no Editor SQL do Supabase se for um projeto novo):
+
 
 Copie e execute o script abaixo diretamente no botão **"SQL Editor"** do painel do seu Supabase para criar todas as tabelas corretas e ativar as políticas de segurança:
 
@@ -80,7 +99,8 @@ CREATE TABLE IF NOT EXISTS public.hamburgueria_produtos (
     descricao text DEFAULT '',
     preco numeric NOT NULL,
     img text DEFAULT '',
-    adicionais_permitidos text[] DEFAULT '{}'::text[]
+    adicionais_permitidos text[] DEFAULT '{}'::text[],
+    is_active boolean DEFAULT true
 );
 
 -- 4. Criação da tabela de adicionais (hamburgueria_adicionais)
