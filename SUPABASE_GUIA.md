@@ -49,6 +49,9 @@ ALTER TABLE public.hamburgueria_produtos ADD COLUMN IF NOT EXISTS is_active bool
 -- Adiciona a coluna preco_original para suportar produtos com desconto (Upsells)
 ALTER TABLE public.hamburgueria_produtos ADD COLUMN IF NOT EXISTS preco_original numeric;
 
+-- Adiciona a coluna vendas para suportar a seção "Os mais pedidos"
+ALTER TABLE public.hamburgueria_produtos ADD COLUMN IF NOT EXISTS vendas numeric DEFAULT 0;
+
 -- Adiciona a coluna ativo para pausar/ativar adicionais
 ALTER TABLE public.hamburgueria_adicionais ADD COLUMN IF NOT EXISTS ativo boolean DEFAULT true;
 
@@ -105,6 +108,7 @@ CREATE TABLE IF NOT EXISTS public.hamburgueria_produtos (
     descricao text DEFAULT '',
     preco numeric NOT NULL,
     preco_original numeric,
+    vendas numeric DEFAULT 0,
     img text DEFAULT '',
     adicionais_permitidos text[] DEFAULT '{}'::text[],
     is_active boolean DEFAULT true

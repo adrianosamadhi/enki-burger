@@ -481,7 +481,8 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
           precoOriginal: p.preco_original ? Number(p.preco_original) : undefined,
           img: p.img || "",
           adicionaisPermitidos: p.adicionais_permitidos || [],
-          isActive: p.is_active !== undefined ? !!p.is_active : true
+          isActive: p.is_active !== undefined ? !!p.is_active : true,
+          vendas: p.vendas || 0
         }));
         setProdutos(mappedProducts);
       } else {
@@ -661,16 +662,18 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
           preco_original: updated.precoOriginal ? Number(updated.precoOriginal) : null,
           img: updated.img || "",
           adicionais_permitidos: updated.adicionaisPermitidos || [],
-          is_active: updated.isActive !== undefined ? !!updated.isActive : true
+          is_active: updated.isActive !== undefined ? !!updated.isActive : true,
+          vendas: updated.vendas || 0
         };
         
         let { error } = await supabaseClient
           .from("hamburgueria_produtos")
           .upsert(payload);
 
-        if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes("is_active") || error.message?.includes("preco_original") || error.message?.includes("column"))) {
+        if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes("is_active") || error.message?.includes("preco_original") || error.message?.includes("vendas") || error.message?.includes("column"))) {
           delete payload.is_active;
           delete payload.preco_original;
+          delete payload.vendas;
           const fb = await supabaseClient.from("hamburgueria_produtos").upsert(payload);
           error = fb.error;
         }
@@ -1004,6 +1007,50 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
             gateway_id: newOrder.id,
           },
         ]);
+        
+        // Auto-increment vendas para "Os mais pedidos"
+        const prodsToUpdate = [...produtos];
+        let hasChanges = false;
+        
+        for (const item of items) {
+          const idx = prodsToUpdate.findIndex(p => p.id === item.id);
+          if (idx !== -1) {
+            const current = prodsToUpdate[idx];
+            const newVendas = (current.vendas || 0) + item.qtd;
+            prodsToUpdate[idx] = { ...current, vendas: newVendas };
+            hasChanges = true;
+            
+            // Tenta salvar via upsert se as colunas existirem, senao falha silenciosamente bg-process
+            supabaseClient.from("hamburgueria_produtos").upsert({
+              id: current.id,
+              categoria: current.categoria,
+              nome: current.nome,
+              descricao: current.descricao || "",
+              preco: current.preco,
+              preco_original: current.precoOriginal,
+              vendas: newVendas,
+              img: current.img || "",
+              adicionais_permitidos: current.adicionaisPermitidos || [],
+              is_active: current.isActive !== undefined ? current.isActive : true
+            }).then(v => {
+              if (v.error) {
+                // Tenta sem colunas de schema novo
+                supabaseClient.from("hamburgueria_produtos").upsert({
+                  id: current.id,
+                  categoria: current.categoria,
+                  nome: current.nome,
+                  descricao: current.descricao || "",
+                  preco: current.preco,
+                  img: current.img || "",
+                  adicionais_permitidos: current.adicionaisPermitidos || []
+                }).then(()=>{}).catch(()=>{});
+              }
+            }).catch(()=>{});
+          }
+        }
+        
+        if (hasChanges) setProdutos(prodsToUpdate);
+
       } catch (err) {
         console.error("Cloud sink failed, falling back safely:", err);
       }
@@ -1510,6 +1557,53 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                     </button>
                   ))}
                 </div>
+
+                {/* Popular items horizontal row */}
+                {view === "menu" && searchQuery === "" && activeCategory === "todos" && sortedProdutos.length > 0 && (
+                  <div className="mb-8 overflow-hidden">
+                    <h2 className="text-xl font-black text-neutral-950 tracking-tight mb-4 select-none">
+                      Os mais pedidos
+                    </h2>
+                    <div className="flex overflow-x-auto gap-4 pb-4 snap-x hide-scrollbar px-1">
+                      {sortedProdutos
+                        .slice()
+                        .sort((a, b) => {
+                          let scoreA = (a.vendas || 0) + (a.precoOriginal ? 1 : 0);
+                          let scoreB = (b.vendas || 0) + (b.precoOriginal ? 1 : 0);
+                          return scoreB - scoreA;
+                        })
+                        .slice(0, 5)
+                        .map((p) => {
+                          const totalQtd = (Object.values(carrinho) as CartItem[])
+                            .filter((item) => item.id === p.id)
+                            .reduce((sum, item) => sum + item.qtd, 0);
+                          return (
+                            <div key={`pop-${p.id}`} className="min-w-[220px] max-w-[240px] snap-start flex-shrink-0">
+                              <ProductCard
+                                product={p}
+                                layoutMode="grid"
+                                quantity={totalQtd}
+                                onSelect={() => {
+                                  setActiveProductDetail(p);
+                                  setProductDetailNotes("");
+                                  setProductDetailQty(1);
+                                  setSelectedAddons({});
+                                }}
+                                onIncrease={(e) => {
+                                  e.stopPropagation();
+                                  changeCartQty(p.id, 1);
+                                }}
+                                onDecrease={(e) => {
+                                  e.stopPropagation();
+                                  changeCartQty(p.id, -1);
+                                }}
+                              />
+                            </div>
+                          )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Search banner and visual settings */}
                 <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">

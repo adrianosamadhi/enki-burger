@@ -70,6 +70,9 @@ export function ProductModalForm({
   const [priceOriginal, setPriceOriginal] = useState<string>(
     product && product.precoOriginal ? product.precoOriginal.toString() : ""
   );
+  const [vendas, setVendas] = useState<string>(
+    product && product.vendas !== undefined ? product.vendas.toString() : "0"
+  );
   
   const initialCat = product ? product.categoria : existingCategories.length > 0 ? existingCategories[0] : "Burgers Artesanais";
   const catIsExisting = existingCategories.includes(initialCat);
@@ -120,6 +123,7 @@ export function ProductModalForm({
       categoria: finalCategory,
       img: img || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80",
       adicionaisPermitidos: selectedAddons,
+      vendas: vendas ? Number(vendas) : 0,
     });
   };
 
@@ -138,7 +142,7 @@ export function ProductModalForm({
           placeholder="Ex: Cheddar Blast Duplo"
         />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
             Preço de Venda (R$)
@@ -155,7 +159,7 @@ export function ProductModalForm({
         </div>
         <div>
           <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1 flex items-center justify-between">
-            <span>Preço Original (De... R$) <span className="text-stone-400 font-normal lowercase">(opcional)</span></span>
+            <span>Preço Original</span>
           </label>
           <input
             type="number"
@@ -164,6 +168,18 @@ export function ProductModalForm({
             onChange={(e) => setPriceOriginal(e.target.value)}
             className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00]"
             placeholder="Ex: 39.90"
+          />
+        </div>
+        <div>
+          <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
+            Nº Vendas (Destaque)
+          </label>
+          <input
+            type="number"
+            value={vendas}
+            onChange={(e) => setVendas(e.target.value)}
+            className="w-full border border-stone-200/80 p-3 text-xs rounded-xl focus:outline-none focus:border-[#FF3D00] focus:ring-1 focus:ring-[#FF3D00]"
+            placeholder="0"
           />
         </div>
       </div>

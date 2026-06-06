@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS public.hamburgueria_produtos (
     descricao text DEFAULT '',
     preco numeric NOT NULL,
     preco_original numeric,
+    vendas numeric DEFAULT 0,
     img text DEFAULT '',
     adicionais_permitidos text[] DEFAULT '{}'::text[],
     is_active boolean DEFAULT true

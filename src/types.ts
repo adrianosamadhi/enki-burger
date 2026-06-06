@@ -13,6 +13,7 @@ export interface Product {
   img: string;
   adicionaisPermitidos?: string[];
   isActive?: boolean;
+  vendas?: number;
 }
 
 export interface Addon {
