@@ -1578,7 +1578,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                             .filter((item) => item.id === p.id)
                             .reduce((sum, item) => sum + item.qtd, 0);
                           return (
-                            <div key={`pop-${p.id}`} className="min-w-[220px] max-w-[240px] snap-start flex-shrink-0">
+                            <div key={`pop-${p.id}`} className="min-w-[220px] max-w-[240px] snap-start flex-shrink-0 h-full">
                               <ProductCard
                                 product={p}
                                 layoutMode="grid"

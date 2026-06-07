@@ -43,7 +43,7 @@ export function ProductCard({
     return (
       <div
         onClick={handleClick}
-        className={`bg-white rounded-[2rem] border flex flex-col justify-between overflow-hidden shadow-sm transition-all duration-300 group ${
+        className={`bg-white rounded-[2rem] border flex flex-col justify-between overflow-hidden shadow-sm transition-all duration-300 group h-full ${
           isPaused ? "opacity-60 grayscale-[0.5] cursor-not-allowed border-stone-200" : "border-stone-100 hover:shadow-lg hover:border-stone-200 hover:-translate-y-1 cursor-pointer"
         }`}
       >
