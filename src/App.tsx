@@ -85,6 +85,12 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(() => {
+    const savedProducts = safeStorage.getItem("cardapio_produtos");
+    const parsed = savedProducts ? JSON.parse(savedProducts) : [];
+    return parsed.length === 0;
+  });
+
   const [adicionais, setAdicionais] = useState<Addon[]>(() => {
     const saved = safeStorage.getItem("cardapio_adicionais");
     return saved ? JSON.parse(saved) : [];
@@ -440,80 +446,84 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
   }, [supabaseClient, adminAuthenticated]);
 
   const fetchRemoteData = async (client: any) => {
-    // Lança todas as requisições simultaneamente para carregar mais rápido
-    const configPromise = client.from("loja_config").select("*").eq("id", 1).maybeSingle();
-    const productsPromise = client.from("hamburgueria_produtos").select("*");
-    const addonsPromise = client.from("hamburgueria_adicionais").select("*");
-    const ordersPromise = adminAuthenticated ? fetchRemoteOrders(client) : Promise.resolve();
+    // 1. Process config
+    client.from("loja_config").select("*").eq("id", 1).maybeSingle()
+      .then(({ data: configData, error: configErr }: any) => {
+        if (configData && !configErr) {
+          const mappedConfig: StoreConfig = {
+            whatsapp: configData.whatsapp || config.whatsapp,
+            supabaseUrl: configData.supabase_url || config.supabaseUrl || "",
+            supabaseKey: configData.supabase_key || config.supabaseKey || "",
+            ifoodBase: Number(configData.ifood_base) || config.ifoodBase,
+            ifoodKm: Number(configData.ifood_km) || config.ifoodKm,
+            mpPubKey: (configData.mp_pub_key && configData.mp_pub_key.includes("sb_publishable")) ? "" : (configData.mp_pub_key || config.mpPubKey || ""),
+            mpAccessToken: configData.mp_access_token || config.mpAccessToken || "",
+            storeName: configData.store_name || config.storeName,
+            storeLogoUrl: configData.store_logo_url || config.storeLogoUrl || "",
+            storeAddress: configData.store_address || config.storeAddress,
+            storeLat: configData.store_lat || config.storeLat,
+            storeLon: configData.store_lon || config.storeLon,
+            businessHours: configData.business_hours
+              ? (typeof configData.business_hours === "string" ? JSON.parse(configData.business_hours) : configData.business_hours)
+              : (config.businessHours || DEFAULT_STORE_CONFIG.businessHours),
+            productOrder: configData.product_order
+              ? (typeof configData.product_order === "string" ? JSON.parse(configData.product_order) : configData.product_order)
+              : (config.productOrder || []),
+            notificationWebhook: configData.notification_webhook !== undefined 
+              ? configData.notification_webhook 
+              : (config.notificationWebhook || ""),
+          };
+          setConfig(mappedConfig);
+          safeStorage.setItem("cardapio_config", JSON.stringify(mappedConfig));
+        }
+      })
+      .catch((err: any) => console.error("Erro config:", err));
 
-    try {
-      const [
-        { data: configData, error: configErr },
-        { data: productsData, error: prodErr },
-        { data: addonsData, error: addonErr }
-      ] = await Promise.all([configPromise, productsPromise, addonsPromise, ordersPromise]);
+    // 2. Process products
+    client.from("hamburgueria_produtos").select("*")
+      .then(({ data: productsData, error: prodErr }: any) => {
+        if (productsData && !prodErr && productsData.length > 0) {
+          const mappedProducts: Product[] = productsData.map((p: any) => ({
+            id: p.id,
+            categoria: p.categoria,
+            nome: p.nome,
+            descricao: p.descricao || "",
+            preco: Number(p.preco),
+            precoOriginal: p.preco_original ? Number(p.preco_original) : undefined,
+            img: p.img || "",
+            adicionaisPermitidos: p.adicionais_permitidos || [],
+            isActive: p.is_active !== undefined ? !!p.is_active : true,
+            vendas: p.vendas || 0
+          }));
+          setProdutos(mappedProducts);
+          safeStorage.setItem("cardapio_produtos", JSON.stringify(mappedProducts));
+        }
+        setIsLoadingMenu(false);
+      })
+      .catch((err: any) => {
+        console.error("Erro produtos:", err);
+        setIsLoadingMenu(false);
+      });
 
-      // 1. Process config
-      if (configData && !configErr) {
-        const mappedConfig: StoreConfig = {
-          whatsapp: configData.whatsapp || config.whatsapp,
-          supabaseUrl: configData.supabase_url || config.supabaseUrl || "",
-          supabaseKey: configData.supabase_key || config.supabaseKey || "",
-          ifoodBase: Number(configData.ifood_base) || config.ifoodBase,
-          ifoodKm: Number(configData.ifood_km) || config.ifoodKm,
-          mpPubKey: (configData.mp_pub_key && configData.mp_pub_key.includes("sb_publishable")) ? "" : (configData.mp_pub_key || config.mpPubKey || ""),
-          mpAccessToken: configData.mp_access_token || config.mpAccessToken || "",
-          storeName: configData.store_name || config.storeName,
-          storeLogoUrl: configData.store_logo_url || config.storeLogoUrl || "",
-          storeAddress: configData.store_address || config.storeAddress,
-          storeLat: configData.store_lat || config.storeLat,
-          storeLon: configData.store_lon || config.storeLon,
-          businessHours: configData.business_hours
-            ? (typeof configData.business_hours === "string" ? JSON.parse(configData.business_hours) : configData.business_hours)
-            : (config.businessHours || DEFAULT_STORE_CONFIG.businessHours),
-          productOrder: configData.product_order
-            ? (typeof configData.product_order === "string" ? JSON.parse(configData.product_order) : configData.product_order)
-            : (config.productOrder || []),
-          notificationWebhook: configData.notification_webhook !== undefined 
-            ? configData.notification_webhook 
-            : (config.notificationWebhook || ""),
-        };
-        setConfig(mappedConfig);
-        safeStorage.setItem("cardapio_config", JSON.stringify(mappedConfig));
-      }
+    // 3. Process addons
+    client.from("hamburgueria_adicionais").select("*")
+      .then(({ data: addonsData, error: addonErr }: any) => {
+        if (addonsData && !addonErr && addonsData.length > 0) {
+          const mappedAddons: Addon[] = addonsData.map((a: any) => ({
+            id: a.id,
+            nome: a.nome,
+            preco: Number(a.preco),
+            ativo: !!a.ativo
+          }));
+          setAdicionais(mappedAddons);
+          safeStorage.setItem("cardapio_adicionais", JSON.stringify(mappedAddons));
+        }
+      })
+      .catch((err: any) => console.error("Erro addons:", err));
 
-      // 2. Process products
-      if (productsData && !prodErr && productsData.length > 0) {
-        const mappedProducts: Product[] = productsData.map((p: any) => ({
-          id: p.id,
-          categoria: p.categoria,
-          nome: p.nome,
-          descricao: p.descricao || "",
-          preco: Number(p.preco),
-          precoOriginal: p.preco_original ? Number(p.preco_original) : undefined,
-          img: p.img || "",
-          adicionaisPermitidos: p.adicionais_permitidos || [],
-          isActive: p.is_active !== undefined ? !!p.is_active : true,
-          vendas: p.vendas || 0
-        }));
-        setProdutos(mappedProducts);
-        safeStorage.setItem("cardapio_produtos", JSON.stringify(mappedProducts));
-      }
-
-      // 3. Process addons
-      if (addonsData && !addonErr && addonsData.length > 0) {
-        const mappedAddons: Addon[] = addonsData.map((a: any) => ({
-          id: a.id,
-          nome: a.nome,
-          preco: Number(a.preco),
-          ativo: !!a.ativo
-        }));
-        setAdicionais(mappedAddons);
-        safeStorage.setItem("cardapio_adicionais", JSON.stringify(mappedAddons));
-      }
-
-    } catch (err) {
-      console.error("Erro geral no carregamento remoto:", err);
+    // 4. Process Orders (admin specific)
+    if (adminAuthenticated) {
+      fetchRemoteOrders(client).catch(console.error);
     }
   };
 
@@ -1563,48 +1573,64 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                 </div>
 
                 {/* Popular items horizontal row */}
-                {view === "menu" && searchQuery === "" && activeCategory === "todos" && sortedProdutos.length > 0 && (
+                {view === "menu" && searchQuery === "" && activeCategory === "todos" && (sortedProdutos.length > 0 || isLoadingMenu) && (
                   <div className="mb-8 overflow-hidden">
                     <h2 className="text-xl font-black text-neutral-950 tracking-tight mb-4 select-none">
                       Os mais pedidos
                     </h2>
                     <div className="flex overflow-x-auto gap-4 pb-4 snap-x hide-scrollbar px-1">
-                      {sortedProdutos
-                        .slice()
-                        .sort((a, b) => {
-                          let scoreA = (a.vendas || 0) + (a.precoOriginal ? 1 : 0);
-                          let scoreB = (b.vendas || 0) + (b.precoOriginal ? 1 : 0);
-                          return scoreB - scoreA;
-                        })
-                        .slice(0, 5)
-                        .map((p) => {
-                          const totalQtd = (Object.values(carrinho) as CartItem[])
-                            .filter((item) => item.id === p.id)
-                            .reduce((sum, item) => sum + item.qtd, 0);
-                          return (
-                            <div key={`pop-${p.id}`} className="min-w-[220px] max-w-[240px] snap-start flex-shrink-0 flex self-stretch">
-                              <ProductCard
-                                product={p}
-                                layoutMode="grid"
-                                quantity={totalQtd}
-                                onSelect={() => {
-                                  setActiveProductDetail(p);
-                                  setProductDetailNotes("");
-                                  setProductDetailQty(1);
-                                  setSelectedAddons({});
-                                }}
-                                onIncrease={(e) => {
-                                  e.stopPropagation();
-                                  changeCartQty(p.id, 1);
-                                }}
-                                onDecrease={(e) => {
-                                  e.stopPropagation();
-                                  changeCartQty(p.id, -1);
-                                }}
-                              />
+                      {isLoadingMenu && sortedProdutos.length === 0 ? (
+                        Array.from({ length: 3 }).map((_, idx) => (
+                          <div key={idx} className="min-w-[220px] max-w-[240px] snap-start flex-shrink-0 flex self-stretch">
+                            <div className="bg-white border rounded-[2rem] p-4 w-full shadow-sm animate-pulse flex flex-col min-h-[300px]">
+                              <div className="w-full h-40 bg-stone-100 rounded-xl mb-4 shrink-0"></div>
+                              <div className="h-5 bg-stone-100 w-3/4 rounded-md mb-2"></div>
+                              <div className="h-4 bg-stone-100 w-1/2 rounded-md mb-4"></div>
+                              <div className="mt-auto flex items-center justify-between">
+                                <div className="h-6 bg-stone-100 w-16 rounded-md"></div>
+                                <div className="h-10 bg-stone-100 w-10 rounded-full"></div>
+                              </div>
                             </div>
-                          )
-                      })}
+                          </div>
+                        ))
+                      ) : (
+                        sortedProdutos
+                          .slice()
+                          .sort((a, b) => {
+                            let scoreA = (a.vendas || 0) + (a.precoOriginal ? 1 : 0);
+                            let scoreB = (b.vendas || 0) + (b.precoOriginal ? 1 : 0);
+                            return scoreB - scoreA;
+                          })
+                          .slice(0, 5)
+                          .map((p) => {
+                            const totalQtd = (Object.values(carrinho) as CartItem[])
+                              .filter((item) => item.id === p.id)
+                              .reduce((sum, item) => sum + item.qtd, 0);
+                            return (
+                              <div key={`pop-${p.id}`} className="min-w-[220px] max-w-[240px] snap-start flex-shrink-0 flex self-stretch">
+                                <ProductCard
+                                  product={p}
+                                  layoutMode="grid"
+                                  quantity={totalQtd}
+                                  onSelect={() => {
+                                    setActiveProductDetail(p);
+                                    setProductDetailNotes("");
+                                    setProductDetailQty(1);
+                                    setSelectedAddons({});
+                                  }}
+                                  onIncrease={(e) => {
+                                    e.stopPropagation();
+                                    changeCartQty(p.id, 1);
+                                  }}
+                                  onDecrease={(e) => {
+                                    e.stopPropagation();
+                                    changeCartQty(p.id, -1);
+                                  }}
+                                />
+                              </div>
+                            )
+                        })
+                      )}
                     </div>
                   </div>
                 )}
@@ -1661,7 +1687,34 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                       : "space-y-4"
                   }`}
                 >
-                  {filteredProducts.map((p) => {
+                  {isLoadingMenu && sortedProdutos.length === 0 ? (
+                    Array.from({ length: 6 }).map((_, idx) => (
+                      <div key={idx} className={`bg-white border text-left p-4 w-full shadow-sm relative overflow-hidden transition-all duration-300 animate-pulse ${
+                          layoutMode === "grid" ? "rounded-[2rem] flex flex-col min-h-[300px]" : "rounded-3xl flex flex-row h-[140px] gap-4"
+                        }`}>
+                        {layoutMode === "grid" ? (
+                          <>
+                            <div className="w-full h-40 bg-stone-100 rounded-xl mb-4 shrink-0"></div>
+                            <div className="h-5 bg-stone-100 w-3/4 rounded-md mb-2"></div>
+                            <div className="h-4 bg-stone-100 w-1/2 rounded-md mb-4"></div>
+                            <div className="mt-auto flex items-center justify-between">
+                              <div className="h-6 bg-stone-100 w-16 rounded-md"></div>
+                              <div className="h-10 bg-stone-100 w-10 rounded-full"></div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="h-full aspect-square bg-stone-100 rounded-xl shrink-0"></div>
+                            <div className="flex flex-col flex-1 py-1">
+                              <div className="h-5 bg-stone-100 w-3/4 rounded-md mb-2"></div>
+                              <div className="h-4 bg-stone-100 w-full rounded-md mb-2"></div>
+                              <div className="mt-auto h-6 bg-stone-100 w-16 rounded-md"></div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))
+                  ) : filteredProducts.map((p) => {
                     const totalQtd = (Object.values(carrinho) as CartItem[])
                       .filter((item) => item.id === p.id)
                       .reduce((sum, item) => sum + item.qtd, 0);
