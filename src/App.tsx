@@ -80,9 +80,15 @@ export default function App() {
     return parsed;
   });
 
-  const [produtos, setProdutos] = useState<Product[]>([]);
+  const [produtos, setProdutos] = useState<Product[]>(() => {
+    const saved = safeStorage.getItem("cardapio_produtos");
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  const [adicionais, setAdicionais] = useState<Addon[]>([]);
+  const [adicionais, setAdicionais] = useState<Addon[]>(() => {
+    const saved = safeStorage.getItem("cardapio_adicionais");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(() => {
     const saved = safeStorage.getItem("enki_cliente_sessao");
@@ -387,35 +393,6 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
 
         // Load all remote data asynchronously
         fetchRemoteData(client);
-
-        // Subscription real-time webhook rules
-        const subscription = client
-          .channel("realtime-orders-sync")
-          .on(
-            "postgres_changes",
-            { event: "INSERT", schema: "public", table: "clientes_pedidos" },
-            (payload: any) => {
-              showToast("Novo pedido recebido via site!", "success");
-              
-              // Executa o aviso sonoro se habilitado
-              if (safeStorage.getItem("enki_sound_alert") !== "false") {
-                playNotificationSound();
-              }
-              
-              // Executa a auto-impressão se habilitada
-              if (safeStorage.getItem("enki_auto_print") === "true" && payload && payload.new) {
-                printDirectDbOrder(payload.new);
-              }
-
-              // Sincroniza localmente o histórico do aplicativo
-              fetchRemoteOrders(client);
-            }
-          )
-          .subscribe();
-
-        return () => {
-          client.removeChannel(subscription);
-        };
       } catch (err) {
         setSupabaseStatus("error");
       }
@@ -424,6 +401,43 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
       setSupabaseStatus("disconnected");
     }
   }, []);
+
+  // Effects 4: Admin-only real-time subscriptions and orders loading
+  useEffect(() => {
+    if (!supabaseClient || !adminAuthenticated) return;
+
+    // Load admin orders history initially
+    fetchRemoteOrders(supabaseClient);
+
+    // Subscription real-time webhook rules (only for authenticated store admins)
+    const subscription = supabaseClient
+      .channel("realtime-orders-sync")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "clientes_pedidos" },
+        (payload: any) => {
+          showToast("Novo pedido recebido via site!", "success");
+          
+          // Executa o aviso sonoro se habilitado
+          if (safeStorage.getItem("enki_sound_alert") !== "false") {
+            playNotificationSound();
+          }
+          
+          // Executa a auto-impressão se habilitada
+          if (safeStorage.getItem("enki_auto_print") === "true" && payload && payload.new) {
+            printDirectDbOrder(payload.new);
+          }
+
+          // Sincroniza localmente o histórico do aplicativo
+          fetchRemoteOrders(supabaseClient);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabaseClient.removeChannel(subscription);
+    };
+  }, [supabaseClient, adminAuthenticated]);
 
   const fetchRemoteData = async (client: any) => {
     // 1. Fetch config (loja_config)
@@ -485,6 +499,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
           vendas: p.vendas || 0
         }));
         setProdutos(mappedProducts);
+        safeStorage.setItem("cardapio_produtos", JSON.stringify(mappedProducts));
       } else {
         // If Supabase is totally empty, we might want to populate it with defaults, 
         // but for now let's just stick to what we have in state
@@ -507,13 +522,16 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
           ativo: !!a.ativo
         }));
         setAdicionais(mappedAddons);
+        safeStorage.setItem("cardapio_adicionais", JSON.stringify(mappedAddons));
       }
     } catch (err) {
       console.error("Erro ao carregar hamburgueria_adicionais:", err);
     }
 
     // 4. Fetch orders history
-    await fetchRemoteOrders(client);
+    if (adminAuthenticated) {
+      await fetchRemoteOrders(client);
+    }
   };
 
   const fetchRemoteOrders = async (client: any) => {
@@ -525,7 +543,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
       if (data) {
         // Map and append to local order cache lists with dynamic sequence starting from 1
         const mapped: Order[] = data.map((item: any, index: number) => ({
-          id: `PED-${index + 1}`,
+          id: item.gateway_id || `PED-${index + 1}`,
           dataHora: new Date(item.created_at).toLocaleString("pt-BR"),
           nome: item.nome,
           telefone: item.telefone,
@@ -948,7 +966,12 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     gatewayStatus: string,
     checkoutDeliveryType: "entrega" | "retirada" = "entrega"
   ) => {
-    const orderId = `PED-${ordersHistory.length + 1}`;
+    // Generate a unique, short, human-readable order token e.g., PED-0616-291
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const orderId = `PED-${mm}${dd}-${randomSuffix}`;
     const items = Object.values(carrinho) as CartItem[];
     const subtotal = items.reduce((acc, item) => acc + getCartItemTotalPrice(item), 0);
     const actualFreight = checkoutDeliveryType === "retirada" ? 0 : (deliveryFee || 0);
@@ -1462,8 +1485,6 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
       {generalModal && (
         <div
           onClick={() => setGeneralModal(null)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={createTouchEndHandler(() => setGeneralModal(null))}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 animate-in fade-in duration-150 cursor-pointer"
         >
           <div
@@ -1578,7 +1599,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                             .filter((item) => item.id === p.id)
                             .reduce((sum, item) => sum + item.qtd, 0);
                           return (
-                            <div key={`pop-${p.id}`} className="min-w-[220px] max-w-[240px] snap-start flex-shrink-0 grid">
+                            <div key={`pop-${p.id}`} className="min-w-[220px] max-w-[240px] snap-start flex-shrink-0 flex self-stretch">
                               <ProductCard
                                 product={p}
                                 layoutMode="grid"
@@ -1844,21 +1865,14 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
             setProductDetailQty(1);
             setSelectedAddons({});
           }}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={createTouchEndHandler(() => {
-            setActiveProductDetail(null);
-            setProductDetailNotes("");
-            setProductDetailQty(1);
-            setSelectedAddons({});
-          })}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none cursor-pointer"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-150 select-none cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-[2.5rem] max-w-2xl w-full shadow-2xl border border-stone-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] overflow-hidden cursor-default"
+            className="bg-white rounded-t-[2.2rem] sm:rounded-[2rem] max-w-2xl w-full shadow-2xl border-t border-x sm:border border-stone-100 animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-200 flex flex-col h-[85vh] sm:h-auto sm:max-h-[92vh] overflow-hidden cursor-default"
           >
             {/* Header / Banner Image */}
-            <div className="relative w-full h-64 sm:h-76 md:h-80 bg-stone-50 overflow-hidden flex items-center justify-center shrink-0 border-b border-stone-100">
+            <div className="relative w-full h-36 sm:h-64 md:h-80 bg-stone-50 overflow-hidden flex items-center justify-center shrink-0 border-b border-stone-100">
               <img
                 src={activeProductDetail.img && activeProductDetail.img.trim() !== "" ? activeProductDetail.img : `https://placehold.co/600x400/f1f5f9/94a3b8?text=${encodeURIComponent(activeProductDetail.nome)}`}
                 className="w-full h-full object-contain p-4 transition-transform duration-500 hover:scale-105"
@@ -1888,7 +1902,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
             {/* Scrollable Content Body */}
             <div className="p-6 md:p-8 space-y-6 overflow-y-auto scrollbar-thin text-left text-stone-900 font-sans">
               <div>
-                <h3 className="font-black text-neutral-950 text-xl md:text-2xl tracking-tight">
+                <h3 className="font-black text-neutral-955 text-xl md:text-2xl tracking-tight">
                   {activeProductDetail.nome}
                 </h3>
                 <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -1926,7 +1940,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                   </span>
                 </div>
 
-                <div className="space-y-2.5 max-h-[30vh] overflow-y-auto pr-1">
+                <div className="space-y-2.5">
                   {(() => {
                     const availableAddons = adicionais
                       .filter((addon) => addon.ativo)
@@ -2057,8 +2071,6 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
       {upsellModalOpen && (
         <div
           onClick={() => setUpsellModalOpen(false)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={createTouchEndHandler(() => setUpsellModalOpen(false))}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none cursor-pointer"
         >
           <div
@@ -2147,8 +2159,6 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
       {adminAuthModalOpen && (
         <div
           onClick={() => setAdminAuthModalOpen(false)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={createTouchEndHandler(() => setAdminAuthModalOpen(false))}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer"
         >
           <div
@@ -2205,8 +2215,6 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
       {clientLoginOpen && (
         <div
           onClick={() => setClientLoginOpen(false)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={createTouchEndHandler(() => setClientLoginOpen(false))}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer"
         >
           <div
@@ -2272,8 +2280,6 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
       {clientRegisterOpen && (
         <div
           onClick={() => setClientRegisterOpen(false)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={createTouchEndHandler(() => setClientRegisterOpen(false))}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer"
         >
           <div
@@ -2437,8 +2443,6 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
       {reviewOrderModalOpen && (
         <div
           onClick={() => setReviewOrderModalOpen(false)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={createTouchEndHandler(() => setReviewOrderModalOpen(false))}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 animate-in fade-in duration-150 select-none cursor-pointer"
         >
           <div
@@ -2583,8 +2587,6 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
       {showPwaInstallModal && (
         <div
           onClick={() => setShowPwaInstallModal(false)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={createTouchEndHandler(() => setShowPwaInstallModal(false))}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4 animate-in fade-in duration-100 select-none cursor-pointer"
         >
           <div

@@ -43,11 +43,11 @@ export function ProductCard({
     return (
       <div
         onClick={handleClick}
-        className={`bg-white rounded-[2rem] border flex flex-col justify-between overflow-hidden shadow-sm transition-all duration-300 group h-full ${
+        className={`bg-white rounded-[2rem] border flex flex-col justify-between overflow-hidden shadow-sm transition-all duration-300 group h-full w-full ${
           isPaused ? "opacity-60 grayscale-[0.5] cursor-not-allowed border-stone-200" : "border-stone-100 hover:shadow-lg hover:border-stone-200 hover:-translate-y-1 cursor-pointer"
         }`}
       >
-        <div className="relative overflow-hidden w-full h-40 sm:h-48 md:h-52 bg-stone-100 flex items-center justify-center">
+        <div className="relative overflow-hidden w-full h-40 sm:h-48 md:h-52 bg-stone-100 flex items-center justify-center shrink-0">
           <img
             src={product.img && product.img.trim() !== "" ? product.img : `https://placehold.co/300x200/f1f5f9/94a3b8?text=${encodeURIComponent(product.nome)}`}
             className={`w-full h-full object-cover transition-transform duration-500 ${!isPaused && "group-hover:scale-110"}`}
