@@ -440,14 +440,20 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
   }, [supabaseClient, adminAuthenticated]);
 
   const fetchRemoteData = async (client: any) => {
-    // 1. Fetch config (loja_config)
-    try {
-      const { data: configData, error: configErr } = await client
-        .from("loja_config")
-        .select("*")
-        .eq("id", 1)
-        .maybeSingle();
+    // Lança todas as requisições simultaneamente para carregar mais rápido
+    const configPromise = client.from("loja_config").select("*").eq("id", 1).maybeSingle();
+    const productsPromise = client.from("hamburgueria_produtos").select("*");
+    const addonsPromise = client.from("hamburgueria_adicionais").select("*");
+    const ordersPromise = adminAuthenticated ? fetchRemoteOrders(client) : Promise.resolve();
 
+    try {
+      const [
+        { data: configData, error: configErr },
+        { data: productsData, error: prodErr },
+        { data: addonsData, error: addonErr }
+      ] = await Promise.all([configPromise, productsPromise, addonsPromise, ordersPromise]);
+
+      // 1. Process config
       if (configData && !configErr) {
         const mappedConfig: StoreConfig = {
           whatsapp: configData.whatsapp || config.whatsapp,
@@ -475,16 +481,8 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
         setConfig(mappedConfig);
         safeStorage.setItem("cardapio_config", JSON.stringify(mappedConfig));
       }
-    } catch (err) {
-      console.error("Erro ao carregar loja_config:", err);
-    }
 
-    // 2. Fetch products (hamburgueria_produtos)
-    try {
-      const { data: productsData, error: prodErr } = await client
-        .from("hamburgueria_produtos")
-        .select("*");
-
+      // 2. Process products
       if (productsData && !prodErr && productsData.length > 0) {
         const mappedProducts: Product[] = productsData.map((p: any) => ({
           id: p.id,
@@ -500,20 +498,9 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
         }));
         setProdutos(mappedProducts);
         safeStorage.setItem("cardapio_produtos", JSON.stringify(mappedProducts));
-      } else {
-        // If Supabase is totally empty, we might want to populate it with defaults, 
-        // but for now let's just stick to what we have in state
       }
-    } catch (err) {
-      console.error("Erro ao carregar hamburgueria_produtos:", err);
-    }
 
-    // 3. Fetch additionals (hamburgueria_adicionais)
-    try {
-      const { data: addonsData, error: addonErr } = await client
-        .from("hamburgueria_adicionais")
-        .select("*");
-
+      // 3. Process addons
       if (addonsData && !addonErr && addonsData.length > 0) {
         const mappedAddons: Addon[] = addonsData.map((a: any) => ({
           id: a.id,
@@ -524,13 +511,9 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
         setAdicionais(mappedAddons);
         safeStorage.setItem("cardapio_adicionais", JSON.stringify(mappedAddons));
       }
-    } catch (err) {
-      console.error("Erro ao carregar hamburgueria_adicionais:", err);
-    }
 
-    // 4. Fetch orders history
-    if (adminAuthenticated) {
-      await fetchRemoteOrders(client);
+    } catch (err) {
+      console.error("Erro geral no carregamento remoto:", err);
     }
   };
 
