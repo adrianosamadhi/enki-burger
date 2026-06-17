@@ -168,8 +168,8 @@ export function CheckoutView({
         showToast("Por favor, calcule a taxa de entrega antes de continuar.", "error");
         return;
       }
-      if (deliveryDistance !== null && deliveryDistance > 3) {
-        showToast("Limite de distância excedido. Oferecemos entrega apenas para um raio de até 3km. Por favor, marque 'Retirada na Loja'.", "error");
+      if (config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance !== null && deliveryDistance > config.maxDeliveryKm) {
+        showToast(`Limite de distância excedido. Oferecemos entrega apenas para um raio de até ${config.maxDeliveryKm}km. Por favor, marque 'Retirada na Loja'.`, "error");
         return;
       }
     }
@@ -906,19 +906,19 @@ export function CheckoutView({
               </div>
             </div>
 
-            {deliveryDistance !== null && deliveryDistance > 3 && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-xs text-red-800 flex items-start gap-2.5 my-2 animate-in fade-in duration-200 leading-relaxed">
+            {config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance !== null && deliveryDistance > config.maxDeliveryKm && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-xs text-red-800 flex items-start gap-2.5 my-2 animate-in fade-in duration-200 leading-relaxed text-left">
                 <AlertTriangle className="w-5 h-5 text-red-650 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-extrabold block text-sm">⚠️ Fora do raio de entrega (Máximo 3km)</span>
+                  <span className="font-extrabold block text-sm">⚠️ Fora do raio de entrega (Máximo {config.maxDeliveryKm} km)</span>
                   <p className="text-stone-600 mt-1">
-                    Infelizmente, só realizamos entregas em um raio de até <strong>3.0 km</strong> da nossa estabelecimento.
+                    Infelizmente, só realizamos entregas em um raio de até <strong>{config.maxDeliveryKm.toFixed(1)} km</strong> da nossa estabelecimento.
                   </p>
                   <p className="text-stone-600 mt-1">
                     O seu endereço atual está a <strong>{deliveryDistance.toFixed(1)} km</strong> de distância.
                   </p>
                   <p className="text-[#FF3D00] font-black mt-2">
-                    Por favor, mude a sua modalidade de frete para "Retirar na Loja" para poder concluir sem entrega!
+                    Por favor, mude a sua modalidade de frete para "Retirar na Loja" para poder concluir seu pedido sem entrega!
                   </p>
                 </div>
               </div>

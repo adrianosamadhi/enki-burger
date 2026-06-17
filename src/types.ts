@@ -41,6 +41,7 @@ export interface StoreConfig {
   supabaseKey: string;
   ifoodBase: number;
   ifoodKm: number;
+  maxDeliveryKm?: number;
   mpPubKey: string;
   mpAccessToken?: string;
   storeName: string;

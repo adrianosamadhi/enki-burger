@@ -456,6 +456,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
             supabaseKey: configData.supabase_key || config.supabaseKey || "",
             ifoodBase: Number(configData.ifood_base) || config.ifoodBase,
             ifoodKm: Number(configData.ifood_km) || config.ifoodKm,
+            maxDeliveryKm: configData.max_delivery_km !== undefined && configData.max_delivery_km !== null ? Number(configData.max_delivery_km) : config.maxDeliveryKm,
             mpPubKey: (configData.mp_pub_key && configData.mp_pub_key.includes("sb_publishable")) ? "" : (configData.mp_pub_key || config.mpPubKey || ""),
             mpAccessToken: configData.mp_access_token || config.mpAccessToken || "",
             storeName: configData.store_name || config.storeName,
@@ -580,6 +581,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
             supabase_key: updated.supabaseKey || "",
             ifood_base: updated.ifoodBase,
             ifood_km: updated.ifoodKm,
+            max_delivery_km: updated.maxDeliveryKm !== undefined ? updated.maxDeliveryKm : null,
             mp_pub_key: updated.mpPubKey || "",
             mp_access_token: updated.mpAccessToken || "",
             store_name: updated.storeName,
@@ -933,10 +935,11 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     if (logistics) {
       setDeliveryDistance(logistics.distanceKm);
       setDeliveryFee(logistics.deliveryFee);
-      showToast(
-        `Frete calculado: ${logistics.distanceKm.toFixed(1)} km - ${formatBRL(logistics.deliveryFee)}`,
-        "success"
-      );
+      if (config.maxDeliveryKm && config.maxDeliveryKm > 0 && logistics.distanceKm > config.maxDeliveryKm) {
+        showToast(`Distância de ${logistics.distanceKm.toFixed(1)} km excede o limite de ${config.maxDeliveryKm} km. Adicione 'Retirada na Loja'.`, "error");
+      } else {
+        showToast(`Frete calculado: ${logistics.distanceKm.toFixed(1)} km - ${formatBRL(logistics.deliveryFee)}`, "success");
+      }
     } else {
       showToast("Não foi possível calcular o frete por coordenadas. Adicionando valor fixo.", "error");
       setDeliveryDistance(1.8);

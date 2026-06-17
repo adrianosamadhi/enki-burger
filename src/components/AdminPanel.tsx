@@ -380,6 +380,7 @@ export function AdminPanel({
   const [cfgSupabaseKey, setCfgSupabaseKey] = useState(config.supabaseKey ? "••••••••••••••••" : "");
   const [cfgIfoodBase, setCfgIfoodBase] = useState(config.ifoodBase);
   const [cfgIfoodKm, setCfgIfoodKm] = useState(config.ifoodKm);
+  const [cfgMaxDeliveryKm, setCfgMaxDeliveryKm] = useState(config.maxDeliveryKm !== undefined ? config.maxDeliveryKm : "");
   const [cfgMpPubKey, setCfgMpPubKey] = useState(config.mpPubKey || "");
   const [cfgMpAccessToken, setCfgMpAccessToken] = useState(config.mpAccessToken ? "••••••••••••••••" : "");
   const [cfgNotificationWebhook, setCfgNotificationWebhook] = useState(config.notificationWebhook || "");
@@ -503,6 +504,7 @@ export function AdminPanel({
       supabaseKey: finalSupabaseKey,
       ifoodBase: Number(cfgIfoodBase) || 7.9,
       ifoodKm: Number(cfgIfoodKm) || 1.8,
+      maxDeliveryKm: cfgMaxDeliveryKm !== "" ? Number(cfgMaxDeliveryKm) : undefined,
       mpPubKey: cfgMpPubKey,
       mpAccessToken: finalMpAccessToken,
       businessHours: cfgBusinessHours,
@@ -1311,7 +1313,7 @@ export function AdminPanel({
               <span className="text-[10px] font-bold tracking-wider uppercase text-stone-400 mb-2 block">
                 Logística de Entrega (Thresholds iFood)
               </span>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[9px] font-bold text-stone-400 mb-0.5">Taxa de Saída (Até 3km)</label>
                   <input
@@ -1330,6 +1332,17 @@ export function AdminPanel({
                     value={cfgIfoodKm}
                     onChange={(e) => setCfgIfoodKm(Number(e.target.value))}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-stone-400 mb-0.5">Distância Máxima (km) - Vazio = sem limite</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={cfgMaxDeliveryKm}
+                    onChange={(e) => setCfgMaxDeliveryKm(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none"
+                    placeholder="Ex: 10"
                   />
                 </div>
               </div>
