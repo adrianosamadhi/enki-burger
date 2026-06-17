@@ -96,7 +96,9 @@ export async function calculateDynamicFreight(
   const originLon = parseFloat(config.storeLon) || -46.652150;
   
   // Format target address for OpenStreetMap lookup
-  const queryAddress = `${street}, ${number}, ${neighborhood}, Brasil`;
+  const cleanCep = cep.replace(/\D/g, "");
+  // Prioritize CEP to securely anchor city and neighborhood context
+  const queryAddress = `${street}, ${number}, ${neighborhood ? neighborhood + ', ' : ''}${cleanCep ? cleanCep + ', ' : ''}Brasil`;
 
   try {
     // Stage 1: Geocode destination using Nominatim
@@ -115,20 +117,34 @@ export async function calculateDynamicFreight(
       destLat = parseFloat(geoData[0].lat);
       destLon = parseFloat(geoData[0].lon);
     } else {
-      // Fallback: Geocode by postal code
-      const cleanCep = cep.replace(/\D/g, "");
-      const cepUrl = `https://nominatim.openstreetmap.org/search?format=json&postalcode=${encodeURIComponent(
-        cleanCep
-      )}&country=Brazil&limit=1`;
-      const cepRes = await fetch(cepUrl, {
+      // Fallback 1: Try street + CEP strictly (bypassing number or custom neighborhood typos)
+      const fallbackQuery = `${street}, ${cleanCep ? cleanCep + ', ' : ''}Brasil`;
+      const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        fallbackQuery
+      )}&limit=1`;
+      const fallbackRes = await fetch(fallbackUrl, {
         headers: { "User-Agent": "MenuDigitalApp/2.0" },
       });
-      const cepData = await cepRes.json();
-      if (cepData && cepData.length > 0) {
-        destLat = parseFloat(cepData[0].lat);
-        destLon = parseFloat(cepData[0].lon);
+      const fallbackData = await fallbackRes.json();
+      
+      if (fallbackData && fallbackData.length > 0) {
+        destLat = parseFloat(fallbackData[0].lat);
+        destLon = parseFloat(fallbackData[0].lon);
       } else {
-        throw new Error("Localização do destinatário não encontrada");
+        // Fallback 2: Geocode strictly by postal code
+        const cepUrl = `https://nominatim.openstreetmap.org/search?format=json&postalcode=${encodeURIComponent(
+          cleanCep
+        )}&country=Brazil&limit=1`;
+        const cepRes = await fetch(cepUrl, {
+          headers: { "User-Agent": "MenuDigitalApp/2.0" },
+        });
+        const cepData = await cepRes.json();
+        if (cepData && cepData.length > 0) {
+          destLat = parseFloat(cepData[0].lat);
+          destLon = parseFloat(cepData[0].lon);
+        } else {
+          throw new Error("Localização do destinatário não encontrada");
+        }
       }
     }
 

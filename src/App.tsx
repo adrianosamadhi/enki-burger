@@ -947,6 +947,16 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     }
   };
 
+  const handleSetManualDistance = (km: number) => {
+    setDeliveryDistance(km);
+    const fee = km <= 3 ? config.ifoodBase : config.ifoodBase + (km - 3) * config.ifoodKm;
+    setDeliveryFee(fee);
+    
+    if (config.maxDeliveryKm && config.maxDeliveryKm > 0 && km > config.maxDeliveryKm) {
+      showToast(`Distância manual de ${km.toFixed(1)} km excede o limite de ${config.maxDeliveryKm} km.`, "error");
+    }
+  };
+
   // Order triggers
   const handleFinalizeOrder = async (
     nome: string,
@@ -1766,6 +1776,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
                 deliveryType={deliveryType}
                 onDeliveryTypeChange={setDeliveryType}
                 onCalculateRoute={handleCalculateRoute}
+                onSetManualDistance={handleSetManualDistance}
                 onFinalizeOrder={handleFinalizeOrder}
                 onBackToMenu={() => setView("menu")}
                 showToast={showToast}

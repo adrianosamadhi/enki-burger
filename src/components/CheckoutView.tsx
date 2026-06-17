@@ -30,6 +30,7 @@ interface CheckoutViewProps {
   deliveryType: "entrega" | "retirada";
   onDeliveryTypeChange: (type: "entrega" | "retirada") => void;
   onCalculateRoute: (street: string, number: string, neighborhood: string, cep: string) => Promise<void>;
+  onSetManualDistance?: (km: number) => void;
   onFinalizeOrder: (
     nome: string,
     telefone: string,
@@ -63,6 +64,7 @@ export function CheckoutView({
   deliveryType,
   onDeliveryTypeChange,
   onCalculateRoute,
+  onSetManualDistance,
   onFinalizeOrder,
   onBackToMenu,
   showToast,
@@ -936,6 +938,29 @@ export function CheckoutView({
               )}
               Calcular Taxa de Entrega (OSRM iFood Router)
             </button>
+
+            {onSetManualDistance && (
+              <div className="mt-4 pt-4 border-t border-stone-100">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2">
+                  Ou informar distância manual (KM)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="Ex: 2.5"
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val)) {
+                        onSetManualDistance(val);
+                      }
+                    }}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#FF3D00]"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
