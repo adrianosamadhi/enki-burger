@@ -39,6 +39,7 @@ interface AdminPanelProps {
   supabaseStatus: "disconnected" | "connected" | "error";
   onLogout: () => void;
   onPrintOrder: (orderId: string) => void;
+  onPrintTest?: () => void;
   showToast: (msg: string, type: "success" | "error") => void;
   onShowModal: (title: string, body: React.ReactNode, actions: React.ReactNode) => void;
   onCloseModal: () => void;
@@ -357,6 +358,7 @@ export function AdminPanel({
   supabaseStatus,
   onLogout,
   onPrintOrder,
+  onPrintTest,
   showToast,
   onShowModal,
   onCloseModal,
@@ -756,6 +758,15 @@ export function AdminPanel({
               >
                 <span>{autoPrintActive ? "🖨️ Auto-Imprimir" : "🔇 Manual"}</span>
               </button>
+              {onPrintTest && (
+                <button
+                  type="button"
+                  onClick={onPrintTest}
+                  className="flex-1 sm:flex-none px-4 py-3 rounded-2xl text-xs font-black border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <FileText className="w-3.5 h-3.5 opacity-60" /> Teste de Impressão
+                </button>
+              )}
             </div>
           </div>
 
