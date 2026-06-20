@@ -985,6 +985,40 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     }
   };
 
+  const handleSaveProfile = (
+    nome: string,
+    telefone: string,
+    rua: string,
+    numero: string,
+    bairro: string,
+    cep: string,
+    referencia: string
+  ) => {
+    const profile: ClientProfile = {
+      telefone,
+      nome,
+      cep: deliveryType === "retirada" ? "" : cep,
+      rua: deliveryType === "retirada" ? "" : rua,
+      numero: deliveryType === "retirada" ? "" : numero,
+      bairro: deliveryType === "retirada" ? "" : bairro,
+      referencia: deliveryType === "retirada" ? "" : referencia,
+    };
+    setClientProfile(profile);
+    safeStorage.setItem("enki_cliente_sessao", JSON.stringify(profile));
+
+    // Auto save to local profiles ledger
+    let ledger: ClientProfile[] = [];
+    try {
+      const savedLedger = safeStorage.getItem("enki_local_perfis");
+      ledger = savedLedger ? JSON.parse(savedLedger) : [];
+    } catch {
+      ledger = [];
+    }
+    ledger = ledger.filter((p) => p.telefone !== telefone);
+    ledger.push(profile);
+    safeStorage.setItem("enki_local_perfis", JSON.stringify(ledger));
+  };
+
   // Order triggers
   const handleFinalizeOrder = async (
     nome: string,
@@ -1112,31 +1146,6 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
         console.error("Cloud sink failed, falling back safely:", err);
       }
     }
-
-    // Prepare client account dynamic profile persistence
-    const profile: ClientProfile = {
-      telefone,
-      nome,
-      cep: deliveryType === "retirada" ? "" : cep,
-      rua: deliveryType === "retirada" ? "" : rua,
-      numero: deliveryType === "retirada" ? "" : numero,
-      bairro: deliveryType === "retirada" ? "" : bairro,
-      referencia: deliveryType === "retirada" ? "" : referencia,
-    };
-    setClientProfile(profile);
-    safeStorage.setItem("enki_cliente_sessao", JSON.stringify(profile));
-
-    // Auto save to local profiles ledger
-    let ledger: ClientProfile[] = [];
-    try {
-      const savedLedger = safeStorage.getItem("enki_local_perfis");
-      ledger = savedLedger ? JSON.parse(savedLedger) : [];
-    } catch {
-      ledger = [];
-    }
-    ledger = ledger.filter((p) => p.telefone !== telefone);
-    ledger.push(profile);
-    safeStorage.setItem("enki_local_perfis", JSON.stringify(ledger));
 
     // Redirect to whatsapp integration
     const finalPaymentModeText =
@@ -1831,6 +1840,7 @@ PAGAMENTO: TESTE
                 onDeliveryTypeChange={setDeliveryType}
                 onCalculateRoute={handleCalculateRoute}
                 onSetManualDistance={handleSetManualDistance}
+                onSaveProfile={handleSaveProfile}
                 onFinalizeOrder={handleFinalizeOrder}
                 onBackToMenu={() => setView("menu")}
                 showToast={showToast}

@@ -31,6 +31,15 @@ interface CheckoutViewProps {
   onDeliveryTypeChange: (type: "entrega" | "retirada") => void;
   onCalculateRoute: (street: string, number: string, neighborhood: string, cep: string) => Promise<void>;
   onSetManualDistance?: (km: number) => void;
+  onSaveProfile: (
+    nome: string,
+    telefone: string,
+    rua: string,
+    numero: string,
+    bairro: string,
+    cep: string,
+    referencia: string
+  ) => void;
   onFinalizeOrder: (
     nome: string,
     telefone: string,
@@ -65,6 +74,7 @@ export function CheckoutView({
   onDeliveryTypeChange,
   onCalculateRoute,
   onSetManualDistance,
+  onSaveProfile,
   onFinalizeOrder,
   onBackToMenu,
   showToast,
@@ -189,6 +199,9 @@ export function CheckoutView({
     const subtotal = items.reduce((acc, item) => acc + getCartItemTotalPrice(item), 0);
     const total = subtotal + (deliveryType === "retirada" ? 0 : (deliveryFee || 0));
 
+    // Optimistically save profile so they don't lose data if payment is rejected
+    onSaveProfile(name, phone, street, number, neighborhood, cep, reference);
+
     // Mercado Pago Client-Side REST API for Pix payments
     if (paymentMethod === "Pix") {
       showToast("Integrando com Mercado Pago...", "success");
@@ -231,6 +244,8 @@ export function CheckoutView({
           // If backend fetch fails (e.g., Github Pages static site), try direct MP API via Proxy
           console.warn("Backend indisponível, tentando integração direta via proxy com MP...", networkErr);
           
+          let mpAccessToken = config.mpAccessToken?.trim();
+          
           if (mpAccessToken) {
             try {
               const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.mercadopago.com/v1/payments");
@@ -260,11 +275,13 @@ export function CheckoutView({
                 pixKey = pixData.point_of_interaction?.transaction_data?.qr_code;
                 isSimulation = false; // Real payment!
               } else {
-                throw new Error("Direct proxy fetch failed");
+                const errText = await pixRes.text();
+                console.error("Direct proxy response error:", errText);
+                throw new Error("Erro MP: " + (errText.substring(0, 80) || pixRes.statusText));
               }
-            } catch (proxyErr) {
+            } catch (proxyErr: any) {
               console.error("Proxy integration failed", proxyErr);
-              throw new Error("Credenciais inválidas ou erro no Mercado Pago. Verifique o Token de Acesso.");
+              throw new Error("Falha no pagamento (Credenciais/Token ou Proxy): " + proxyErr.message);
             }
           } else {
              isSimulation = true;
@@ -452,6 +469,8 @@ export function CheckoutView({
         } catch (networkErr: any) {
           console.warn("Backend indisponível, tentando integração direta de Card via proxy MP...", networkErr);
           
+          let mpAccessToken = config.mpAccessToken?.trim();
+          
           if (mpAccessToken) {
             try {
               const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.mercadopago.com/checkout/preferences");
@@ -484,11 +503,13 @@ export function CheckoutView({
                 initPoint = prefData.init_point;
                 isSimulation = false;
               } else {
-                throw new Error("Direct proxy fetch failed");
+                const errText = await prefRes.text();
+                console.error("Direct proxy response error:", errText);
+                throw new Error("Erro MP: " + (errText.substring(0, 80) || prefRes.statusText));
               }
-            } catch (proxyErr) {
+            } catch (proxyErr: any) {
               console.error("Proxy integration failed", proxyErr);
-              throw new Error("Credenciais inválidas ou erro no Mercado Pago. Verifique o Token de Acesso.");
+              throw new Error("Falha no pagamento (Credenciais/Token ou Proxy): " + proxyErr.message);
             }
           } else {
              isSimulation = true;
