@@ -264,13 +264,7 @@ export function CheckoutView({
               }
             } catch (proxyErr) {
               console.error("Proxy integration failed", proxyErr);
-              // Fallback to static simulation
-              isSimulation = true;
-              pId = "MP-GH-" + Math.floor(100000 + Math.random() * 900000);
-              const payloadStore = (config.storeName || "Enki Burger").substring(0, 15).toUpperCase();
-              const cleanStore = encodeURIComponent(payloadStore).replace(/%[0-9A-F]{2}/g, "");
-              const formattedTotal = Number(total).toFixed(2);
-              pixKey = `00020126580014BR.GOV.BCBC.PIX0136e9ff97-ad20-4e2a-b6b8-2ea9c98ef2e55204000053039865405${formattedTotal}5802BR5911${cleanStore.substring(0, 10)}6009SAOPAULO62070503***6304CAFE`;
+              throw new Error("Credenciais inválidas ou erro no Mercado Pago. Verifique o Token de Acesso.");
             }
           } else {
              isSimulation = true;
@@ -494,8 +488,7 @@ export function CheckoutView({
               }
             } catch (proxyErr) {
               console.error("Proxy integration failed", proxyErr);
-              isSimulation = true;
-              pId = "MP-PREF-" + Math.floor(100000 + Math.random() * 900000);
+              throw new Error("Credenciais inválidas ou erro no Mercado Pago. Verifique o Token de Acesso.");
             }
           } else {
              isSimulation = true;
