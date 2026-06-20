@@ -504,7 +504,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     // 2. Process products
     client.from("hamburgueria_produtos").select("*")
       .then(({ data: productsData, error: prodErr }: any) => {
-        if (productsData && !prodErr && productsData.length > 0) {
+        if (!prodErr && productsData) {
           const mappedProducts: Product[] = productsData.map((p: any) => ({
             id: p.id,
             categoria: p.categoria,
@@ -530,7 +530,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     // 3. Process addons
     client.from("hamburgueria_adicionais").select("*")
       .then(({ data: addonsData, error: addonErr }: any) => {
-        if (addonsData && !addonErr && addonsData.length > 0) {
+        if (!addonErr && addonsData) {
           const mappedAddons: Addon[] = addonsData.map((a: any) => ({
             id: a.id,
             nome: a.nome,
