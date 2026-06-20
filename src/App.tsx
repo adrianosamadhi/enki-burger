@@ -88,12 +88,21 @@ export default function App() {
         if (parsed && parsed.length > 0) return parsed;
       }
     } catch (e) {
-      console.warn("Cache inválido, usando padrão", e);
+      console.warn("Cache inválido", e);
     }
-    return DEFAULT_PRODUCTS;
+    return [];
   });
 
-  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(false);
+  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(() => {
+    try {
+      const saved = safeStorage.getItem("cardapio_produtos");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.length > 0) return false;
+      }
+    } catch {}
+    return true;
+  });
 
   const [adicionais, setAdicionais] = useState<Addon[]>(() => {
     try {
@@ -103,9 +112,9 @@ export default function App() {
         if (parsed && parsed.length > 0) return parsed;
       }
     } catch (e) {
-      console.warn("Cache inválido, usando padrão", e);
+      console.warn("Cache inválido", e);
     }
-    return DEFAULT_ADDONS;
+    return [];
   });
 
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(() => {
