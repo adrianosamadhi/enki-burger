@@ -44,11 +44,31 @@ async function startServer() {
         });
 
         if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          console.error("MP Error (Pix):", errData);
-          return res.status(response.status).json({
-            error: errData.message || errData.error || "Erro do Mercado Pago ao criar Pix."
-          });
+          let errorMsg = "Erro do Mercado Pago";
+          try {
+            const errData = await response.json();
+            console.error("MP Error (Pix) Detail:", errData);
+            if (errData.message) {
+              errorMsg = errData.message;
+            } else if (errData.error) {
+              errorMsg = errData.error;
+            }
+            if (errData.cause && Array.isArray(errData.cause)) {
+              const details = errData.cause.map((c: any) => c.description || c.code || JSON.stringify(c)).join("; ");
+              if (details) {
+                errorMsg += ` - Detalhes: ${details}`;
+              }
+            }
+          } catch (jsonErr) {
+            try {
+              const text = await response.text();
+              console.error("MP Error (Pix) Text:", text);
+              errorMsg += `: ${text}`;
+            } catch (txtErr) {
+              errorMsg += `: Status ${response.status}`;
+            }
+          }
+          return res.status(response.status).json({ error: errorMsg });
         }
 
         const data = await response.json();
@@ -83,11 +103,31 @@ async function startServer() {
         });
 
         if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          console.error("MP Error (Preference):", errData);
-          return res.status(response.status).json({
-            error: errData.message || errData.error || "Erro do Mercado Pago ao criar Preferência."
-          });
+          let errorMsg = "Erro do Mercado Pago";
+          try {
+            const errData = await response.json();
+            console.error("MP Error (Preference) Detail:", errData);
+            if (errData.message) {
+              errorMsg = errData.message;
+            } else if (errData.error) {
+              errorMsg = errData.error;
+            }
+            if (errData.cause && Array.isArray(errData.cause)) {
+              const details = errData.cause.map((c: any) => c.description || c.code || JSON.stringify(c)).join("; ");
+              if (details) {
+                errorMsg += ` - Detalhes: ${details}`;
+              }
+            }
+          } catch (jsonErr) {
+            try {
+              const text = await response.text();
+              console.error("MP Error (Preference) Text:", text);
+              errorMsg += `: ${text}`;
+            } catch (txtErr) {
+              errorMsg += `: Status ${response.status}`;
+            }
+          }
+          return res.status(response.status).json({ error: errorMsg });
         }
 
         const data = await response.json();
