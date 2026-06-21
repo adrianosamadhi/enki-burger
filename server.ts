@@ -1,47 +1,54 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import fs from "fs";
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Use JSON middleware with reasonable limits
   app.use(express.json());
 
-  // Simple Proxy for Mercado Pago
+  // API Route for creating Pix payments or Preference links
   app.post("/api/checkout/mp", async (req, res) => {
     try {
-      const { paymentMethod, total, name, email, storeName, mpAccessToken } = req.body;
+      const { paymentMethod, total, name, phone, email, storeName, mpAccessToken } = req.body;
       
-      if (!mpAccessToken) {
-        return res.status(400).json({ error: "Access token is missing" });
+      const token = mpAccessToken?.trim();
+      if (!token) {
+        return res.status(400).json({ error: "Token Mercado Pago ausente" });
       }
 
       if (paymentMethod === "Pix") {
         const names = (name || "").trim().split(" ");
+        const firstName = names[0] || "Cliente";
+        const lastName = names.slice(1).join(" ") || "Enki";
+        
         const response = await fetch("https://api.mercadopago.com/v1/payments", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${mpAccessToken}`,
-            "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
+            "Authorization": `Bearer ${token}`,
+            "X-Idempotency-Key": `enki-${Date.now()}-${Math.floor(Math.random() * 1000)}`
           },
           body: JSON.stringify({
             transaction_amount: Number(Number(total).toFixed(2)),
             description: `Compra - ${storeName || "Enki Burger"}`,
             payment_method_id: "pix",
             payer: {
-              email: "compras@enkiburger.com.br",
-              first_name: names[0] || "Cliente",
-              last_name: names.slice(1).join(" ") || "Enki"
+              email: email || "compras@enkiburger.com.br",
+              first_name: firstName,
+              last_name: lastName
             }
           })
         });
 
         if (!response.ok) {
-          const errText = await response.text();
-          return res.status(response.status).json({ error: "Erro MP: " + errText });
+          const errData = await response.json().catch(() => ({}));
+          console.error("MP Error (Pix):", errData);
+          return res.status(response.status).json({
+            error: errData.message || errData.error || "Erro do Mercado Pago ao criar Pix."
+          });
         }
 
         const data = await response.json();
@@ -51,32 +58,36 @@ async function startServer() {
           isSimulation: false
         });
       } else {
-        // Cartão / Preferences
+        // Preference / Card
         const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
           method: "POST",
           headers: {
-             "Content-Type": "application/json",
-             "Authorization": `Bearer ${mpAccessToken}`
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({
             items: [
               {
-                title: `Pedido - ${storeName || "Enki Burger"}`,
+                title: `Compra - ${storeName || "Enki Burger"}`,
+                description: "Pedido online",
                 quantity: 1,
-                unit_price: Number(Number(total).toFixed(2)),
-                currency_id: "BRL"
+                currency_id: "BRL",
+                unit_price: Number(Number(total).toFixed(2))
               }
             ],
             payer: {
-              email: "compras@enkiburger.com.br",
-              name: name
+              email: email || "compras@enkiburger.com.br",
+              name: name || "Cliente"
             }
           })
         });
 
         if (!response.ok) {
-           const errText = await response.text();
-           return res.status(response.status).json({ error: "Erro MP: " + errText });
+          const errData = await response.json().catch(() => ({}));
+          console.error("MP Error (Preference):", errData);
+          return res.status(response.status).json({
+            error: errData.message || errData.error || "Erro do Mercado Pago ao criar Preferência."
+          });
         }
 
         const data = await response.json();
@@ -86,29 +97,40 @@ async function startServer() {
           isSimulation: false
         });
       }
-    } catch (e: any) {
-      console.error(e);
-      return res.status(500).json({ error: e.message });
+    } catch (err: any) {
+      console.error("Backend Error:", err);
+      return res.status(500).json({ error: err.message || "Erro interno do servidor." });
     }
   });
 
-  // Proxy status polling
+  // API Route for polling payment status securely
   app.get("/api/checkout/mp/status/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { token } = req.query; // receive token via query param
-      
+      const { token } = req.query;
+
       if (!token) {
-        return res.status(400).json({ error: "Token missed" });
+        return res.status(400).json({ error: "Token Mercado Pago ausente" });
       }
 
       const response = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
       });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        return res.status(response.status).json({
+          error: errData.message || errData.error || "Erro ao consultar status."
+        });
+      }
+
       const data = await response.json();
-      return res.json(data);
-    } catch(e: any) {
-      return res.status(500).json({ error: e.message });
+      return res.json({ status: data.status });
+    } catch (err: any) {
+      console.error("Polling status error:", err);
+      return res.status(500).json({ error: err.message || "Erro ao consultar status." });
     }
   });
 
@@ -121,18 +143,14 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    if (fs.existsSync(distPath)) {
-        app.use(express.static(distPath));
-        app.get('*', (req, res) => {
-        res.sendFile(path.join(distPath, 'index.html'));
-        });
-    } else {
-        app.get('*', (req, res) => res.send("Production build not found."));
-    }
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
 }
 
