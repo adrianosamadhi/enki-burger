@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { printReceipt } from "./printReceipt";
 import { createClient } from "@supabase/supabase-js";
 import {
   MapPin,
@@ -213,10 +214,7 @@ ${dbItem.pedido_detalhes || ""}
 ----------------------------------------
 TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
 ----------------------------------------</pre>`;
-    setReceiptHtml(receipt);
-    setTimeout(() => {
-      window.print();
-    }, 250);
+    printReceipt(receipt);
   };
 
   // Shopping cart operations
@@ -264,9 +262,6 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
   const [regNumber, setRegNumber] = useState("");
   const [regNeighborhood, setRegNeighborhood] = useState("");
   const [regReferencia, setRegReferencia] = useState("");
-
-  // Receipt printed buffer state
-  const [receiptHtml, setReceiptHtml] = useState("");
 
   // Alerts feedback
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -1055,6 +1050,8 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
       const obs = item.observacoes ? `\n   *Obs:* _${item.observacoes}_` : "";
       itemsDoc += `• *${item.qtd}x* ${item.nome}${addonText}${obs}\n`;
     });
+    
+    itemsDoc += `\n**PAGAMENTO:** ${paymentMethod.toUpperCase()}`;
 
     const newOrder: Order = {
       id: orderId,
@@ -1419,10 +1416,7 @@ ${itemsText}
 TOTAL: ${formatBRL(o.total)}
 PAGAMENTO: ${o.pagamento.toUpperCase()}
 ========================================</pre>`;
-    setReceiptHtml(receipt);
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    printReceipt(receipt);
   };
 
   const printTestOutput = () => {
@@ -1444,10 +1438,7 @@ PAGAMENTO: TESTE
 ========================================
      VERIFIQUE ALINHAMENTO E TAMANHO
 ========================================</pre>`;
-    setReceiptHtml(receipt);
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    printReceipt(receipt);
   };
 
   // Upsell handling
@@ -1519,9 +1510,6 @@ PAGAMENTO: TESTE
           <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
         </div>
       )}
-
-      {/* Embedded hidden printable receipt area */}
-      <div id="thermal-receipt" className="hidden" dangerouslySetInnerHTML={{ __html: receiptHtml }} />
 
       {/* FAB WHATSAPP / AI ASSISTANT DIRECT LINK */}
       <a
