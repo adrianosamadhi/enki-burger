@@ -18,6 +18,7 @@ import {
   Copy,
   ShoppingBag,
 } from "lucide-react";
+import { supabase } from "../supabase";
 import { CartItem, StoreConfig, ClientProfile } from "../types";
 import { formatBRL, formatCEP, fetchAddressByCEP, getCartItemTotalPrice, isStoreOpen } from "../utils";
 
@@ -221,18 +222,22 @@ export function CheckoutView({
 
           const names = name.trim().split(" ");
           
-          const directRes = await fetch("/api/checkout/mp", {
+          const directRes = await fetch("https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${mpAccessToken.trim()}`,
+              "X-Idempotency-Key": `enki-${Date.now()}-${Math.floor(Math.random() * 1000)}`
             },
             body: JSON.stringify({
-              paymentMethod: "Pix",
-              total,
-              name,
-              phone,
-              storeName: config.storeName,
-              mpAccessToken
+              transaction_amount: Number(Number(total).toFixed(2)),
+              description: `Compra - ${config.storeName || "Enki Burger"}`,
+              payment_method_id: "pix",
+              payer: {
+                email: "compras@enkiburger.com.br",
+                first_name: names[0] || "Cliente",
+                last_name: names.slice(1).join(" ") || "Enki"
+              }
             })
           });
 
@@ -240,23 +245,22 @@ export function CheckoutView({
             let errInfoText = "";
             try {
               const errData = await directRes.json();
-              errInfoText = errData.error || errData.message || JSON.stringify(errData);
+              console.error("Erro MercadoPago (PIX):", errData);
+              errInfoText = errData.message || JSON.stringify(errData);
             } catch (jsonErr) {
-              errInfoText = "Falha ao analisar a resposta do backend.";
+              errInfoText = "Falha ao analisar a resposta de erro do Mercado Pago (PIX).";
+              console.error("Erro desconhecido MercadoPago PIX:", directRes.statusText);
             }
-            throw new Error(errInfoText || "Erro ao processar pagamento Pix via backend.");
+            throw new Error(errInfoText || "Erro ao processar pagamento Pix no Mercado Pago.");
           }
 
           const data = await directRes.json();
-          pId = data.paymentId;
-          pixKey = data.pixKey;
-          isSimulation = data.isSimulation;
-        } catch (networkErr: any) {
-          console.warn("Mercado Pago fail:", networkErr);
-          if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
-            throw new Error("Conexão falhou. O backend pode estar offline.");
-          }
-          throw new Error(networkErr.message || "Falha na comunicação com o backend.");
+          pId = data.id;
+          pixKey = data.point_of_interaction?.transaction_data?.qr_code;
+          isSimulation = false;
+        } catch (error: any) {
+          console.error("Exceção detalhada ao chamar Mercado Pago (PIX):", error);
+          throw new Error(error.message || "Falha na comunicação com o Mercado Pago.");
         }
 
         const handleCopyKey = () => {
@@ -324,7 +328,10 @@ export function CheckoutView({
                
                if (mpAccessToken) {
                   try {
-                      const res = await fetch(`/api/checkout/mp/status/${pId}?token=${mpAccessToken}`);
+                      const res = await fetch(`https://api.mercadopago.com/v1/payments/${pId}`, {
+                          headers: { "Authorization": `Bearer ${mpAccessToken.trim()}` }
+                      });
+
                       if (res.ok) {
                           const data = await res.json();
                           if (data.status === "approved" || data.status === "authorized") {
@@ -334,9 +341,11 @@ export function CheckoutView({
                               stopPolling();
                               return;
                           } 
+                      } else {
+                          console.error("Falha ao checar status do PIX:", await res.text());
                       }
                   } catch (e) {
-                      // Ignorar silenciosamente e tentar de novo no próximo poll
+                      console.error("Exceção detalhada no polling:", e);
                   }
                }
 
@@ -384,18 +393,26 @@ export function CheckoutView({
             throw new Error("Token do Mercado Pago ausente nas configurações.");
           }
 
-          const directRes = await fetch("/api/checkout/mp", {
+          const directRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
             method: "POST",
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${mpAccessToken.trim()}`
             },
             body: JSON.stringify({
-              paymentMethod: "Cartão",
-              total,
-              name,
-              phone,
-              storeName: config.storeName,
-              mpAccessToken
+              items: [
+                {
+                  title: `Compra - ${config.storeName || "Enki Burger"}`,
+                  description: "Pedido online: " + name,
+                  quantity: 1,
+                  currency_id: "BRL",
+                  unit_price: Number(Number(total).toFixed(2))
+                }
+              ],
+              payer: {
+                email: "compras@enkiburger.com.br",
+                name: name
+              }
             })
           });
 
@@ -403,23 +420,22 @@ export function CheckoutView({
             let errInfoText = "";
             try {
               const errData = await directRes.json();
-              errInfoText = errData.error || errData.message || JSON.stringify(errData);
+              console.error("Erro MercadoPago (Preference):", errData);
+              errInfoText = errData.message || JSON.stringify(errData);
             } catch (jsonErr) {
-              errInfoText = "Falha ao analisar a resposta do backend.";
+              errInfoText = "Falha ao analisar a resposta de erro do Mercado Pago (Preference).";
+              console.error("Erro desconhecido MercadoPago Preference:", directRes.statusText);
             }
-            throw new Error(errInfoText || "Erro ao gerar link de pagamento via backend.");
+            throw new Error(errInfoText || "Erro ao gerar link de pagamento.");
           }
 
           const data = await directRes.json();
-          pId = data.paymentId;
-          initPoint = data.initPoint;
-          isSimulation = data.isSimulation;
-        } catch (networkErr: any) {
-          console.warn("Mercado Pago fail:", networkErr);
-          if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
-            throw new Error("Conexão falhou. O backend pode estar offline ou bloqueado.");
-          }
-          throw new Error(networkErr.message || "Falha na comunicação com o backend de pagamento.");
+          pId = data.id;
+          initPoint = data.init_point;
+          isSimulation = false;
+        } catch (error: any) {
+          console.error("Exceção detalhada ao chamar Mercado Pago (Preference):", error);
+          throw new Error(error.message || "Falha na comunicação com o Mercado Pago.");
         }
 
         // Real Mercado Pago Hosted Preference Checkout! (Direct and secure routing to credit card, pix, ticket, etc.)
