@@ -37,9 +37,6 @@ body {
 
 /* Print thermal receipt template */
 @media print {
-  @page {
-    margin: 0;
-  }
   body * {
     visibility: hidden !important;
   }

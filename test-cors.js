@@ -1,16 +1,21 @@
-async function check() {
-  try {
-    const res = await fetch("https://api.allorigins.win/raw?url=https://api.mercadopago.com/v1/payments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({})
-    });
-    console.log(res.status);
-    console.log(await res.text());
-  } catch (e) {
-    console.log(e);
+import https from 'https';
+
+const options = {
+  hostname: 'api.mercadopago.com',
+  path: '/v1/payments',
+  method: 'OPTIONS',
+  headers: {
+    'Origin': 'https://adrianosamadhi.github.io',
+    'Access-Control-Request-Method': 'POST'
   }
-}
-check();
+};
+
+const req = https.request(options, (res) => {
+  console.log('Status: ' + res.statusCode);
+  console.log('Headers: ' + JSON.stringify(res.headers, null, 2));
+});
+
+req.on('error', (e) => {
+  console.error(e);
+});
+req.end();

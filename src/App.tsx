@@ -88,21 +88,12 @@ export default function App() {
         if (parsed && parsed.length > 0) return parsed;
       }
     } catch (e) {
-      console.warn("Cache inválido", e);
+      console.warn("Cache inválido, usando padrão", e);
     }
-    return [];
+    return DEFAULT_PRODUCTS;
   });
 
-  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(() => {
-    try {
-      const saved = safeStorage.getItem("cardapio_produtos");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.length > 0) return false;
-      }
-    } catch {}
-    return true;
-  });
+  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(false);
 
   const [adicionais, setAdicionais] = useState<Addon[]>(() => {
     try {
@@ -112,9 +103,9 @@ export default function App() {
         if (parsed && parsed.length > 0) return parsed;
       }
     } catch (e) {
-      console.warn("Cache inválido", e);
+      console.warn("Cache inválido, usando padrão", e);
     }
-    return [];
+    return DEFAULT_ADDONS;
   });
 
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(() => {
@@ -200,7 +191,7 @@ export default function App() {
     const dataHora = dbItem.created_at ? new Date(dbItem.created_at).toLocaleString("pt-BR") : new Date().toLocaleString("pt-BR");
     
     const receipt = `
-<pre>
+      <pre>
 ----------------------------------------
              ${config.storeName.toUpperCase()}
 ----------------------------------------
@@ -214,7 +205,8 @@ ${dbItem.pedido_detalhes || ""}
 ----------------------------------------
 TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
 ----------------------------------------
-</pre>`;
+      </pre>
+    `;
     setReceiptHtml(receipt);
     setTimeout(() => {
       window.print();
@@ -449,17 +441,9 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
             playNotificationSound();
           }
           
-          // Executa a auto-impressão se habilitada e apenas se o pagamento estiver concluido/aprovado
-          if (
-            safeStorage.getItem("enki_auto_print") === "true" && 
-            payload && 
-            payload.new
-          ) {
-            const status = payload.new.gateway_status;
-            // Apenas imprime se for aprovado no checkout online, ou se for pagamento na entrega (onde a validação é manual)
-            if (status === "Aprovado" || payload.new.pagamento === "Maquininha na Entrega" || payload.new.pagamento === "Dinheiro na Entrega") {
-              printDirectDbOrder(payload.new);
-            }
+          // Executa a auto-impressão se habilitada
+          if (safeStorage.getItem("enki_auto_print") === "true" && payload && payload.new) {
+            printDirectDbOrder(payload.new);
           }
 
           // Sincroniza localmente o histórico do aplicativo
@@ -511,7 +495,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     // 2. Process products
     client.from("hamburgueria_produtos").select("*")
       .then(({ data: productsData, error: prodErr }: any) => {
-        if (!prodErr && productsData) {
+        if (productsData && !prodErr && productsData.length > 0) {
           const mappedProducts: Product[] = productsData.map((p: any) => ({
             id: p.id,
             categoria: p.categoria,
@@ -537,7 +521,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     // 3. Process addons
     client.from("hamburgueria_adicionais").select("*")
       .then(({ data: addonsData, error: addonErr }: any) => {
-        if (!addonErr && addonsData) {
+        if (addonsData && !addonErr && addonsData.length > 0) {
           const mappedAddons: Addon[] = addonsData.map((a: any) => ({
             id: a.id,
             nome: a.nome,
@@ -985,40 +969,6 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     }
   };
 
-  const handleSaveProfile = (
-    nome: string,
-    telefone: string,
-    rua: string,
-    numero: string,
-    bairro: string,
-    cep: string,
-    referencia: string
-  ) => {
-    const profile: ClientProfile = {
-      telefone,
-      nome,
-      cep: deliveryType === "retirada" ? "" : cep,
-      rua: deliveryType === "retirada" ? "" : rua,
-      numero: deliveryType === "retirada" ? "" : numero,
-      bairro: deliveryType === "retirada" ? "" : bairro,
-      referencia: deliveryType === "retirada" ? "" : referencia,
-    };
-    setClientProfile(profile);
-    safeStorage.setItem("enki_cliente_sessao", JSON.stringify(profile));
-
-    // Auto save to local profiles ledger
-    let ledger: ClientProfile[] = [];
-    try {
-      const savedLedger = safeStorage.getItem("enki_local_perfis");
-      ledger = savedLedger ? JSON.parse(savedLedger) : [];
-    } catch {
-      ledger = [];
-    }
-    ledger = ledger.filter((p) => p.telefone !== telefone);
-    ledger.push(profile);
-    safeStorage.setItem("enki_local_perfis", JSON.stringify(ledger));
-  };
-
   // Order triggers
   const handleFinalizeOrder = async (
     nome: string,
@@ -1147,6 +1097,31 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
       }
     }
 
+    // Prepare client account dynamic profile persistence
+    const profile: ClientProfile = {
+      telefone,
+      nome,
+      cep: deliveryType === "retirada" ? "" : cep,
+      rua: deliveryType === "retirada" ? "" : rua,
+      numero: deliveryType === "retirada" ? "" : numero,
+      bairro: deliveryType === "retirada" ? "" : bairro,
+      referencia: deliveryType === "retirada" ? "" : referencia,
+    };
+    setClientProfile(profile);
+    safeStorage.setItem("enki_cliente_sessao", JSON.stringify(profile));
+
+    // Auto save to local profiles ledger
+    let ledger: ClientProfile[] = [];
+    try {
+      const savedLedger = safeStorage.getItem("enki_local_perfis");
+      ledger = savedLedger ? JSON.parse(savedLedger) : [];
+    } catch {
+      ledger = [];
+    }
+    ledger = ledger.filter((p) => p.telefone !== telefone);
+    ledger.push(profile);
+    safeStorage.setItem("enki_local_perfis", JSON.stringify(ledger));
+
     // Redirect to whatsapp integration
     const finalPaymentModeText =
       paymentMethod === "Maquininha na Entrega" ? paymentMethod : `${paymentMethod} (Mercado Pago Aprovado)`;
@@ -1246,7 +1221,13 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
   };
 
   const handleAdvanceToCheckout = () => {
-    setReviewOrderModalOpen(true);
+    const activeAddons = adicionais.filter((a) => a.ativo);
+    if (activeAddons.length > 0 && view !== "checkout") {
+      setUpsellQuantities({});
+      setUpsellModalOpen(true);
+    } else {
+      setReviewOrderModalOpen(true);
+    }
   };
 
   const executeCheckoutSubmit = () => {
@@ -1422,7 +1403,8 @@ ${itemsText}
 TOTAL: ${formatBRL(o.total)}
 PAGAMENTO: ${o.pagamento.toUpperCase()}
 ========================================
-</pre>`;
+</pre>
+    `;
     setReceiptHtml(receipt);
     setTimeout(() => {
       window.print();
@@ -1449,7 +1431,8 @@ PAGAMENTO: TESTE
 ========================================
      VERIFIQUE ALINHAMENTO E TAMANHO
 ========================================
-</pre>`;
+</pre>
+    `;
     setReceiptHtml(receipt);
     setTimeout(() => {
       window.print();
@@ -1834,7 +1817,6 @@ PAGAMENTO: TESTE
                 onDeliveryTypeChange={setDeliveryType}
                 onCalculateRoute={handleCalculateRoute}
                 onSetManualDistance={handleSetManualDistance}
-                onSaveProfile={handleSaveProfile}
                 onFinalizeOrder={handleFinalizeOrder}
                 onBackToMenu={() => setView("menu")}
                 showToast={showToast}
