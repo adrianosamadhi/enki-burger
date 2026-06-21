@@ -18,6 +18,7 @@ import {
   Copy,
   ShoppingBag,
 } from "lucide-react";
+import { supabase } from "../supabase";
 import { CartItem, StoreConfig, ClientProfile } from "../types";
 import { formatBRL, formatCEP, fetchAddressByCEP, getCartItemTotalPrice, isStoreOpen } from "../utils";
 
@@ -221,39 +222,30 @@ export function CheckoutView({
 
           const names = name.trim().split(" ");
           
-          const directRes = await fetch("https://api.mercadopago.com/v1/payments", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${mpAccessToken.trim()}`,
-              "X-Idempotency-Key": `enki-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-            },
-            body: JSON.stringify({
+          const { data, error } = await supabase.functions.invoke("mercadopago", {
+            body: {
+              action: "create_pix",
+              token: mpAccessToken.trim(),
               transaction_amount: Number(Number(total).toFixed(2)),
               description: `Compra - ${config.storeName || "Enki Burger"}`,
-              payment_method_id: "pix",
               payer: {
                 email: "compras@enkiburger.com.br",
                 first_name: names[0] || "Cliente",
                 last_name: names.slice(1).join(" ") || "Enki"
               }
-            })
+            }
           });
 
-          if (!directRes.ok) {
-            let errInfoText = "";
-            try {
-              const errData = await directRes.json();
-              errInfoText = errData.message || errData.error || JSON.stringify(errData);
-            } catch (jsonErr) {
-              errInfoText = "Falha ao analisar a resposta do Mercado Pago.";
-            }
-            throw new Error(errInfoText || "Credenciais inválidas ou erro no pagador.");
+          if (error) {
+            console.error("Erro da Edge Function (Pix):", error);
+            throw new Error("Falha ao comunicar com o servidor de pagamento.");
+          }
+          if (data && data.error) {
+            throw new Error(data.error);
           }
 
-          const data = await directRes.json();
-          pId = data.id;
-          pixKey = data.point_of_interaction?.transaction_data?.qr_code;
+          pId = data.paymentId || data.id;
+          pixKey = data.pixKey || data.point_of_interaction?.transaction_data?.qr_code;
           isSimulation = false;
         } catch (networkErr: any) {
           console.error("Mercado Pago fail:", networkErr);
@@ -325,13 +317,16 @@ export function CheckoutView({
                
                if (mpAccessToken) {
                   try {
-                      const mpApiUrl = `https://api.mercadopago.com/v1/payments/${pId}`;
-                      const s = await fetch(mpApiUrl, {
-                          headers: { "Authorization": `Bearer ${mpAccessToken}` }
+                      const { data, error } = await supabase.functions.invoke("mercadopago", {
+                        body: {
+                          action: "check_status",
+                          payment_id: pId,
+                          token: mpAccessToken
+                        }
                       });
                       
-                      if (s.ok) {
-                          const sj = await s.json();
+                      if (!error && data) {
+                          const sj = data;
                           if (sj.status === "approved" || sj.status === "authorized") {
                               showToast("Pagamento Pix recebido com sucesso!", "success");
                               onCloseModal();
@@ -341,7 +336,7 @@ export function CheckoutView({
                           } 
                       }
                   } catch (directErr) {
-                      console.error("Falha ao checar status do PIX:", directErr);
+                      console.error("Falha ao checar status do PIX via Edge Function:", directErr);
                   }
                }
 
@@ -389,13 +384,10 @@ export function CheckoutView({
             throw new Error("Token do Mercado Pago ausente nas configurações.");
           }
 
-          const directRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${mpAccessToken.trim()}`
-            },
-            body: JSON.stringify({
+          const { data, error } = await supabase.functions.invoke("mercadopago", {
+            body: {
+              action: "create_preference",
+              token: mpAccessToken.trim(),
               items: [
                 {
                   title: `Compra - ${config.storeName || "Enki Burger"}`,
@@ -409,21 +401,17 @@ export function CheckoutView({
                 email: "compras@enkiburger.com.br",
                 name: name
               }
-            })
+            }
           });
 
-          if (!directRes.ok) {
-            let errInfoText = "";
-            try {
-              const errData = await directRes.json();
-              errInfoText = errData.message || errData.error || JSON.stringify(errData);
-            } catch (jsonErr) {
-              errInfoText = "Falha ao analisar a resposta do Mercado Pago.";
-            }
-            throw new Error(errInfoText || "Erro ao gerar link de pagamento.");
+          if (error) {
+            console.error("Erro da Edge Function (Preference):", error);
+            throw new Error("Falha ao comunicar com o servidor de pagamento.");
+          }
+          if (data && data.error) {
+            throw new Error(data.error);
           }
 
-          const data = await directRes.json();
           pId = data.id;
           initPoint = data.init_point;
           isSimulation = false;
