@@ -18,7 +18,6 @@ import {
   Copy,
   ShoppingBag,
 } from "lucide-react";
-import { supabase } from "../supabase";
 import { CartItem, StoreConfig, ClientProfile } from "../types";
 import { formatBRL, formatCEP, fetchAddressByCEP, getCartItemTotalPrice, isStoreOpen } from "../utils";
 
@@ -222,7 +221,7 @@ export function CheckoutView({
 
           const names = name.trim().split(" ");
           
-          const directRes = await fetch("https://api.mercadopago.com/v1/payments", {
+          const directRes = await fetch("https://corsproxy.io/?https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -328,7 +327,7 @@ export function CheckoutView({
                
                if (mpAccessToken) {
                   try {
-                      const res = await fetch(`https://api.mercadopago.com/v1/payments/${pId}`, {
+                      const res = await fetch(`https://corsproxy.io/?https://api.mercadopago.com/v1/payments/${pId}`, {
                           headers: { "Authorization": `Bearer ${mpAccessToken.trim()}` }
                       });
 
@@ -393,7 +392,7 @@ export function CheckoutView({
             throw new Error("Token do Mercado Pago ausente nas configurações.");
           }
 
-          const directRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
+          const directRes = await fetch("https://corsproxy.io/?https://api.mercadopago.com/checkout/preferences", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
