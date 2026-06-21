@@ -1,9 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import dotenv from "dotenv";
-
-dotenv.config();
+import fs from "fs";
 
 async function startServer() {
   const app = express();
@@ -11,170 +9,110 @@ async function startServer() {
 
   app.use(express.json());
 
-  // CORS Middleware to allow static frontend on GitHub Pages/custom domains to communicate securely
-  app.use((req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
-    }
-    next();
-  });
-
-  // API Route: Mercado Pago Checkout Integration
+  // Simple Proxy for Mercado Pago
   app.post("/api/checkout/mp", async (req, res) => {
     try {
-      const { paymentMethod, total, name, phone, email, storeName, mpAccessToken: bodyToken } = req.body;
-      const mpAccessToken = bodyToken || process.env.MP_ACCESS_TOKEN;
-
-      // Safe Fallback Layer: If Access Token is not set yet in Environment Variables, run high-fidelity simulation
+      const { paymentMethod, total, name, email, storeName, mpAccessToken } = req.body;
+      
       if (!mpAccessToken) {
-        const simulatedId = "MP-" + Math.floor(100000 + Math.random() * 900000);
-        
-        // Dynamic valid EMV Pix code for testing using standard generator parameters
-        const payloadStore = (storeName || "Enki Burger").substring(0, 15).toUpperCase();
-        const cleanStore = encodeURIComponent(payloadStore).replace(/%[0-9A-F]{2}/g, "");
-        const formattedTotal = Number(total).toFixed(2);
-        
-        const pixKey = `00020126580014BR.GOV.BCBC.PIX0136e9ff97-ad20-4e2a-b6b8-2ea9c98ef2e55204000053039865405${formattedTotal}5802BR5911${cleanStore.substring(0, 10)}6009SAOPAULO62070503***6304CAFE`;
-
-        return res.json({
-          success: true,
-          isSimulation: true,
-          paymentId: simulatedId,
-          pixKey,
-          message: "Modo Simulação Ativo. Configure 'MP_ACCESS_TOKEN' no painel do AI Studio para processamento de pagamentos reais."
-        });
+        return res.status(400).json({ error: "Access token is missing" });
       }
 
-      // Real integration logic with Mercado Pago API
       if (paymentMethod === "Pix") {
-        const uniqueKey = "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
-        const names = name.trim().split(" ");
-        const firstName = names[0] || "Cliente";
-        const lastName = names.slice(1).join(" ") || "Enki";
-
-        const mpRes = await fetch("https://api.mercadopago.com/v1/payments", {
+        const names = (name || "").trim().split(" ");
+        const response = await fetch("https://api.mercadopago.com/v1/payments", {
           method: "POST",
           headers: {
+            "Content-Type": "application/json",
             "Authorization": `Bearer ${mpAccessToken}`,
-            "X-Idempotency-Key": uniqueKey,
-            "Content-Type": "application/json"
+            "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
           },
           body: JSON.stringify({
-            description: `Pedido ${name} - ${storeName || "Enki Burger"}`,
-            installments: 1,
+            transaction_amount: Number(Number(total).toFixed(2)),
+            description: `Compra - ${storeName || "Enki Burger"}`,
             payment_method_id: "pix",
             payer: {
-              email: email || "compras@enkiburger.com.br",
-              first_name: firstName,
-              last_name: lastName,
-              phone: {
-                number: phone ? phone.replace(/\D/g, "") : "11999999999"
-              }
-            },
-            transaction_amount: Number(total)
+              email: "compras@enkiburger.com.br",
+              first_name: names[0] || "Cliente",
+              last_name: names.slice(1).join(" ") || "Enki"
+            }
           })
         });
 
-        if (!mpRes.ok) {
-          const errData = await mpRes.json();
-          console.error("Mercado Pago API Pix Error:", errData);
-          throw new Error(errData.message || "Erro de autorização ou saldo no Mercado Pago.");
+        if (!response.ok) {
+          const errText = await response.text();
+          return res.status(response.status).json({ error: "Erro MP: " + errText });
         }
 
-        const data = await mpRes.json();
+        const data = await response.json();
         return res.json({
-          success: true,
-          isSimulation: false,
-          paymentId: `MP-${data.id}`,
+          paymentId: data.id,
           pixKey: data.point_of_interaction?.transaction_data?.qr_code,
-          status: data.status
+          isSimulation: false
         });
-
       } else {
-        // Card Preference Flow - Official Mercado Pago Hosted Checkout (Perfect for PCI Compliance)
-        const uniqueKey = "enki-card-" + Date.now();
-        const mpRes = await fetch("https://api.mercadopago.com/v1/preferences", {
+        // Cartão / Preferences
+        const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${mpAccessToken}`,
-            "Content-Type": "application/json"
+             "Content-Type": "application/json",
+             "Authorization": `Bearer ${mpAccessToken}`
           },
           body: JSON.stringify({
             items: [
               {
-                id: uniqueKey,
-                title: `Pedido ${name} - ${storeName || "Enki Burger"}`,
+                title: `Pedido - ${storeName || "Enki Burger"}`,
                 quantity: 1,
-                currency_id: "BRL",
-                unit_price: Number(total)
+                unit_price: Number(Number(total).toFixed(2)),
+                currency_id: "BRL"
               }
             ],
             payer: {
-              name,
-              email: email || "compras@enkiburger.com.br"
-            },
-            back_urls: {
-              success: `https://${req.headers.host || "localhost:3000"}`,
-              failure: `https://${req.headers.host || "localhost:3000"}`,
-              pending: `https://${req.headers.host || "localhost:3000"}`
-            },
-            auto_return: "approved"
+              email: "compras@enkiburger.com.br",
+              name: name
+            }
           })
         });
 
-        if (!mpRes.ok) {
-          const errData = await mpRes.json();
-          console.error("Mercado Pago API Preference Error:", errData);
-          throw new Error(errData.message || "Erro ao gerar link de pagamento.");
+        if (!response.ok) {
+           const errText = await response.text();
+           return res.status(response.status).json({ error: "Erro MP: " + errText });
         }
 
-        const data = await mpRes.json();
+        const data = await response.json();
         return res.json({
-          success: true,
-          isSimulation: false,
-          paymentId: `MP-PREF-${data.id}`,
-          initPoint: data.init_point
+          paymentId: data.id,
+          initPoint: data.init_point,
+          isSimulation: false
         });
       }
-
-    } catch (error: any) {
-      console.error("Payment API endpoint crash:", error);
-      return res.status(500).json({
-        success: false,
-        error: error.message || "Erro interno de comunicação com o Mercado Pago."
-      });
+    } catch (e: any) {
+      console.error(e);
+      return res.status(500).json({ error: e.message });
     }
   });
 
-  // API Route: Check payment status
+  // Proxy status polling
   app.get("/api/checkout/mp/status/:id", async (req, res) => {
     try {
-      const paymentId = req.params.id.replace("MP-", ""); // remove MP- prefix if any
-      const mpAccessToken = process.env.MP_ACCESS_TOKEN || req.headers.authorization?.replace("Bearer ", "");
-      if (!mpAccessToken) {
-        return res.status(400).json({ status: "simulation" });
+      const { id } = req.params;
+      const { token } = req.query; // receive token via query param
+      
+      if (!token) {
+        return res.status(400).json({ error: "Token missed" });
       }
 
-      const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${mpAccessToken}`
-        }
+      const response = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
+        headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!mpRes.ok) {
-        return res.status(400).json({ error: "Not found" });
-      }
-      const data = await mpRes.json();
-      return res.json({ status: data.status }); // 'approved', 'pending', etc.
-    } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+      const data = await response.json();
+      return res.json(data);
+    } catch(e: any) {
+      return res.status(500).json({ error: e.message });
     }
   });
 
-  // Vite development vs production pipeline middleware setup
+  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -182,15 +120,19 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+    const distPath = path.join(process.cwd(), 'dist');
+    if (fs.existsSync(distPath)) {
+        app.use(express.static(distPath));
+        app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+        });
+    } else {
+        app.get('*', (req, res) => res.send("Production build not found."));
+    }
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Enki Server] running on http://localhost:${PORT}`);
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
 }
 
