@@ -31,6 +31,15 @@ interface CheckoutViewProps {
   onDeliveryTypeChange: (type: "entrega" | "retirada") => void;
   onCalculateRoute: (street: string, number: string, neighborhood: string, cep: string) => Promise<void>;
   onSetManualDistance?: (km: number) => void;
+  onSaveProfile: (
+    nome: string,
+    telefone: string,
+    rua: string,
+    numero: string,
+    bairro: string,
+    cep: string,
+    referencia: string
+  ) => void;
   onFinalizeOrder: (
     nome: string,
     telefone: string,
@@ -65,6 +74,7 @@ export function CheckoutView({
   onDeliveryTypeChange,
   onCalculateRoute,
   onSetManualDistance,
+  onSaveProfile,
   onFinalizeOrder,
   onBackToMenu,
   showToast,
@@ -189,6 +199,9 @@ export function CheckoutView({
     const subtotal = items.reduce((acc, item) => acc + getCartItemTotalPrice(item), 0);
     const total = subtotal + (deliveryType === "retirada" ? 0 : (deliveryFee || 0));
 
+    // Optimistically save profile so they don't lose data if payment is rejected
+    onSaveProfile(name, phone, street, number, neighborhood, cep, reference);
+
     // Mercado Pago Client-Side REST API for Pix payments
     if (paymentMethod === "Pix") {
       showToast("Integrando com Mercado Pago...", "success");
@@ -201,90 +214,49 @@ export function CheckoutView({
         let isSimulation = false;
         
         try {
-          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
+          const mpAccessToken = config.mpAccessToken;
+          if (!mpAccessToken?.trim()) {
+            throw new Error("Token do Mercado Pago ausente nas configurações.");
+          }
+
+          const names = name.trim().split(" ");
+          
+          const directRes = await fetch("/api/checkout/mp", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
               paymentMethod: "Pix",
-              total: Number(total),
+              total,
               name,
               phone,
-              email: "compras@enkiburger.com.br",
-              storeName: config.storeName || "Enki Burger",
+              storeName: config.storeName,
               mpAccessToken
             })
           });
 
-          if (!mpRes.ok) {
-            const errData = await mpRes.json().catch(() => ({}));
-            console.error("Mercado Pago API Pix Error:", errData);
-            throw new Error(errData.error || "Erro ao processar Pix através do servidor.");
+          if (!directRes.ok) {
+            let errInfoText = "";
+            try {
+              const errData = await directRes.json();
+              errInfoText = errData.error || errData.message || JSON.stringify(errData);
+            } catch (jsonErr) {
+              errInfoText = "Falha ao analisar a resposta do backend.";
+            }
+            throw new Error(errInfoText || "Erro ao processar pagamento Pix via backend.");
           }
 
-          const data = await mpRes.json();
+          const data = await directRes.json();
           pId = data.paymentId;
           pixKey = data.pixKey;
           isSimulation = data.isSimulation;
         } catch (networkErr: any) {
-          // If backend fetch fails (e.g., Github Pages static site), try direct MP API via Proxy
-          console.warn("Backend indisponível, tentando integração direta via proxy com MP...", networkErr);
-          
-          if (mpAccessToken) {
-            try {
-              const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.mercadopago.com/v1/payments");
-              const names = name.trim().split(" ");
-              const pixRes = await fetch(mpApiUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${mpAccessToken}`,
-                  "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
-                },
-                body: JSON.stringify({
-                  transaction_amount: Number(Number(total).toFixed(2)),
-                  description: `Compra - ${config.storeName || "Enki Burger"}`,
-                  payment_method_id: "pix",
-                  payer: {
-                    email: "compras@enkiburger.com.br",
-                    first_name: names[0] || "Cliente",
-                    last_name: names.slice(1).join(" ") || "Enki"
-                  }
-                })
-              });
-              
-              if (pixRes.ok) {
-                const pixData = await pixRes.json();
-                pId = pixData.id;
-                pixKey = pixData.point_of_interaction?.transaction_data?.qr_code;
-                isSimulation = false; // Real payment!
-              } else {
-                throw new Error("Direct proxy fetch failed");
-              }
-            } catch (proxyErr) {
-              console.error("Proxy integration failed", proxyErr);
-              // Fallback to static simulation
-              isSimulation = true;
-              pId = "MP-GH-" + Math.floor(100000 + Math.random() * 900000);
-              const payloadStore = (config.storeName || "Enki Burger").substring(0, 15).toUpperCase();
-              const cleanStore = encodeURIComponent(payloadStore).replace(/%[0-9A-F]{2}/g, "");
-              const formattedTotal = Number(total).toFixed(2);
-              pixKey = `00020126580014BR.GOV.BCBC.PIX0136e9ff97-ad20-4e2a-b6b8-2ea9c98ef2e55204000053039865405${formattedTotal}5802BR5911${cleanStore.substring(0, 10)}6009SAOPAULO62070503***6304CAFE`;
-            }
-          } else {
-             isSimulation = true;
-             pId = "MP-GH-" + Math.floor(100000 + Math.random() * 900000);
-             const payloadStore = (config.storeName || "Enki Burger").substring(0, 15).toUpperCase();
-             const cleanStore = encodeURIComponent(payloadStore).replace(/%[0-9A-F]{2}/g, "");
-             const formattedTotal = Number(total).toFixed(2);
-             pixKey = `00020126580014BR.GOV.BCBC.PIX0136e9ff97-ad20-4e2a-b6b8-2ea9c98ef2e55204000053039865405${formattedTotal}5802BR5911${cleanStore.substring(0, 10)}6009SAOPAULO62070503***6304CAFE`;
-             showToast("Modo Estático Ativo. Sem Token de Acesso.", "success");
+          console.warn("Mercado Pago fail:", networkErr);
+          if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
+            throw new Error("Conexão falhou. O backend pode estar offline.");
           }
-        }
-
-        if (isSimulation) {
-          showToast("Aviso: Chave simulação activa (Sem Configuração Completa/Static)", "success");
+          throw new Error(networkErr.message || "Falha na comunicação com o backend.");
         }
 
         const handleCopyKey = () => {
@@ -298,16 +270,12 @@ export function CheckoutView({
               <QrCode className="w-6 h-6" />
             </div>
             <span className="text-xs font-bold text-blue-600 block">
-              PAGAMENTO PIX MERCADO PAGO {isSimulation && "(MODO SIMULADO)"}
+              PAGAMENTO PIX MERCADO PAGO
             </span>
             <p className="text-[11px] text-stone-500 leading-relaxed font-sans">
               Leia o código QR no app do seu banco ou copie a chave Pix abaixo.
             </p>
-            {isSimulation && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[10px] text-amber-700 leading-normal max-w-xs mx-auto">
-                <strong>Simulação Habilitada:</strong> Para receber pagamentos reais, configure seu Token de Acesso MP no painel.
-              </div>
-            )}
+            
             <div className="bg-stone-50 p-4 rounded-xl inline-block border border-stone-200/50">
               <img 
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pixKey)}`} 
@@ -316,6 +284,7 @@ export function CheckoutView({
                 referrerPolicy="no-referrer"
               />
             </div>
+            
             <div className="relative mt-2">
               <textarea
                 readOnly
@@ -330,7 +299,7 @@ export function CheckoutView({
                 <Copy className="w-3.5 h-3.5" /> Copiar Código
               </button>
             </div>
-            
+
             <div className="mt-4 flex flex-col items-center justify-center gap-2">
               <div className="w-5 h-5 border-2 border-stone-300 border-t-blue-600 rounded-full animate-spin" />
               <p className="text-[11px] font-bold text-stone-600 animate-pulse">
@@ -348,54 +317,35 @@ export function CheckoutView({
           if (pollingInterval) clearTimeout(pollingInterval);
         };
 
-        const checkStatus = async () => {
-             if (!isPolling) return;
-             
-             if (isSimulation) {
-                 showToast("Pagamento simulado aprovado automaticamente!", "success");
-                 onCloseModal();
-                 onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                 stopPolling();
-                 return;
-             }
-             
-             if (mpAccessToken) {
-                try {
-                    const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent(`https://api.mercadopago.com/v1/payments/${pId}`);
-                    const s = await fetch(mpApiUrl, {
-                        headers: { "Authorization": `Bearer ${mpAccessToken}` }
-                    });
-                    const sj = await s.json();
-                    if (sj.status === "approved" || sj.status === "authorized") {
-                        showToast("Pagamento Pix aprovado com sucesso!", "success");
-                        onCloseModal();
-                        onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                        stopPolling();
-                        return;
-                    } 
-                } catch (e) {
-                    console.error("Erro ao verificar pagamento via polling", e);
-                }
-             } else {
-                 // Try backend route just in case
-                 try {
-                     const s = await fetch(getApiUrl(`/api/checkout/mp/status/${pId}`));
-                     const sj = await s.json();
-                     if (sj.status === "approved" || sj.status === "authorized") {
-                        showToast("Pagamento Pix aprovado com sucesso!", "success");
-                        onCloseModal();
-                        onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                        stopPolling();
-                        return;
-                     }
-                 } catch (e) {}
-             }
+             const checkStatus = async () => {
+               if (!isPolling) return;
 
-             if (isPolling) {
-                 pollingInterval = setTimeout(checkStatus, 5000);
-             }
-        };
+               let mpAccessToken = config.mpAccessToken?.trim();
+               
+               if (mpAccessToken) {
+                  try {
+                      const res = await fetch(`/api/checkout/mp/status/${pId}?token=${mpAccessToken}`);
+                      if (res.ok) {
+                          const data = await res.json();
+                          if (data.status === "approved" || data.status === "authorized") {
+                              showToast("Pagamento Pix recebido com sucesso!", "success");
+                              onCloseModal();
+                              onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                              stopPolling();
+                              return;
+                          } 
+                      }
+                  } catch (e) {
+                      // Ignorar silenciosamente e tentar de novo no próximo poll
+                  }
+               }
 
+               if (isPolling) {
+                   pollingInterval = setTimeout(checkStatus, 5000);
+               }
+             };
+
+        // Start polling after 5 seconds
         pollingInterval = setTimeout(checkStatus, 5000);
 
         const actions = (
@@ -429,212 +379,51 @@ export function CheckoutView({
         let isSimulation = false;
         
         try {
-          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
+          const mpAccessToken = config.mpAccessToken;
+          if (!mpAccessToken?.trim()) {
+            throw new Error("Token do Mercado Pago ausente nas configurações.");
+          }
+
+          const directRes = await fetch("/api/checkout/mp", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
               paymentMethod: "Cartão",
-              total: Number(total),
+              total,
               name,
               phone,
-              email: "compras@enkiburger.com.br",
-              storeName: config.storeName || "Enki Burger",
+              storeName: config.storeName,
               mpAccessToken
             })
           });
 
-          if (!mpRes.ok) {
-            const errData = await mpRes.json().catch(() => ({}));
-            console.error("Mercado Pago API Preference Error:", errData);
-            throw new Error(errData.error || "Erro ao gerar link de pagamento seguro.");
+          if (!directRes.ok) {
+            let errInfoText = "";
+            try {
+              const errData = await directRes.json();
+              errInfoText = errData.error || errData.message || JSON.stringify(errData);
+            } catch (jsonErr) {
+              errInfoText = "Falha ao analisar a resposta do backend.";
+            }
+            throw new Error(errInfoText || "Erro ao gerar link de pagamento via backend.");
           }
 
-          const data = await mpRes.json();
+          const data = await directRes.json();
           pId = data.paymentId;
           initPoint = data.initPoint;
           isSimulation = data.isSimulation;
         } catch (networkErr: any) {
-          console.warn("Backend indisponível, tentando integração direta de Card via proxy MP...", networkErr);
-          
-          if (mpAccessToken) {
-            try {
-              const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.mercadopago.com/checkout/preferences");
-              
-              const prefRes = await fetch(mpApiUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${mpAccessToken}`
-                },
-                body: JSON.stringify({
-                  items: [
-                    {
-                      title: `Compra - ${config.storeName || "Enki Burger"}`,
-                      description: "Pedido online",
-                      quantity: 1,
-                      currency_id: "BRL",
-                      unit_price: Number(Number(total).toFixed(2))
-                    }
-                  ],
-                  payer: {
-                    email: "compras@enkiburger.com.br"
-                  }
-                })
-              });
-              
-              if (prefRes.ok) {
-                const prefData = await prefRes.json();
-                pId = prefData.id;
-                initPoint = prefData.init_point;
-                isSimulation = false;
-              } else {
-                throw new Error("Direct proxy fetch failed");
-              }
-            } catch (proxyErr) {
-              console.error("Proxy integration failed", proxyErr);
-              isSimulation = true;
-              pId = "MP-PREF-" + Math.floor(100000 + Math.random() * 900000);
-            }
-          } else {
-             isSimulation = true;
-             pId = "MP-PREF-" + Math.floor(100000 + Math.random() * 900000);
-             showToast("Modo Estático Ativo. Sem Token de Acesso.", "success");
+          console.warn("Mercado Pago fail:", networkErr);
+          if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
+            throw new Error("Conexão falhou. O backend pode estar offline ou bloqueado.");
           }
+          throw new Error(networkErr.message || "Falha na comunicação com o backend de pagamento.");
         }
 
-        if (isSimulation) {
-          // If we are in simulation mode, keep the super sleek direct Card Checkout Form mockup!
-          let cardNum = "";
-          
-          const onCardSubmit = (e: React.FormEvent) => {
-            e.preventDefault();
-            if (cardNum.replace(/\s/g, "").length < 13) {
-              showToast("Insira um número de cartão de crédito válido.", "error");
-              return;
-            }
-            onCloseModal();
-            showToast("Processando pagamento no Mercado Pago...", "success");
-            setTimeout(() => {
-              onFinalizeOrder(
-                name,
-                phone,
-                street,
-                number,
-                neighborhood,
-                cep,
-                reference,
-                `Cartão (${cardType})`,
-                cardType,
-                pId,
-                "Aprovado",
-                deliveryType
-              );
-            }, 1500);
-          };
-
-          const body = (
-            <form onSubmit={onCardSubmit} className="space-y-3.5 text-left py-1 text-stone-900 font-sans">
-              <div className="flex items-center gap-2 border-b border-stone-100 pb-2 mb-2">
-                <CreditCard className="w-4 h-4 text-blue-600" />
-                <span className="text-xs font-bold text-stone-600">Checkout Simulado Mercado Pago ({cardType})</span>
-              </div>
-              
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[10px] text-amber-700 leading-normal mb-2">
-                <strong>Modo Sandbox Simulado:</strong> Preencha dados de teste para aprovação automática, ou adicione o access token nas configurações para pagamentos reais.
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                  Número do Cartão
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
-                  placeholder="0000 0000 0000 0000"
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "").replace(/(.{4})/g, "$1 ").trim();
-                    cardNum = val;
-                    e.target.value = val;
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                  Nome do Titular
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 uppercase"
-                  placeholder="EX: ADRIANO SAMADHI"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                    Validade
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={5}
-                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
-                    placeholder="MM/AA"
-                    onChange={(e) => {
-                      let val = e.target.value.replace(/\D/g, "");
-                      if (val.length > 2) val = `${val.substring(0, 2)}/${val.substring(2, 4)}`;
-                      e.target.value = val;
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                    CVV
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    maxLength={4}
-                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
-                    placeholder="000"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                  Parcelamento
-                </label>
-                <select className="w-full bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-2 text-xs focus:outline-none focus:border-blue-500 cursor-pointer">
-                  <option>1x de {formatBRL(total)} (Sem Juros)</option>
-                  {cardType === "Crédito" && (
-                    <React.Fragment>
-                      <option>2x de {formatBRL(total / 2)}</option>
-                      <option>3x de {formatBRL(total / 3)}</option>
-                    </React.Fragment>
-                  )}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full mt-2 bg-[#FF3D00] hover:bg-[#E03600] text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md font-sans"
-              >
-                <Check className="w-3.5 h-3.5" /> Confirmar Pagamento Simulado
-              </button>
-            </form>
-          );
-
-          onShowModal("Pagar com Cartão", body, null);
-
-        } else {
-          // Real Mercado Pago Hosted Preference Checkout! (Direct and secure routing to credit card, pix, ticket, etc.)
-          const body = (
+        // Real Mercado Pago Hosted Preference Checkout! (Direct and secure routing to credit card, pix, ticket, etc.)
+        const body = (
             <div className="space-y-4 text-center py-2 text-stone-900 select-none font-sans">
               <div className="mx-auto w-12 h-12 rounded-full bg-emerald-50 text-emerald-650 flex items-center justify-center mb-1">
                 <Check className="w-6 h-6" />
@@ -668,7 +457,6 @@ export function CheckoutView({
           );
 
           onShowModal("Segurança Mercado Pago", body, null);
-        }
 
       } catch (err: any) {
         showToast(err.message || "Erro de conexão com o Mercado Pago.", "error");

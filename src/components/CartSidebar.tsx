@@ -48,62 +48,7 @@ export function CartSidebar({
 
       {count === 0 ? (
         <div className="text-center py-8 space-y-4">
-          <svg className="w-28 h-28 mx-auto" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M 65,55 C 65,31 79,24 100,24 C 121,24 135,31 135,55 Z"
-              stroke="#FF3D00"
-              strokeWidth="4.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path d="M 62,64 C 71,61 76,68 83,64 C 90,61 97,68 104,64 C 111,61 118,68 125,64 C 132,61 138,64 138,64" stroke="#FF3D00" strokeWidth="4.5" strokeLinecap="round" />
-            <path
-              d="M 68,73 L 91,73 L 100,83 L 109,73 L 132,73 C 136,73 136,83 132,83 L 68,83 C 64,83 64,73 68,73 Z"
-              stroke="#000000"
-              strokeWidth="4.5"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M 68,88 L 132,88 C 136,88 136,98 132,98 L 68,98 C 64,98 64,88 68,88 Z"
-              stroke="#000000"
-              strokeWidth="4.5"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M 73,115 L 55,115 C 49,115 49,124 55,124 L 69,124 M 55,124 C 49,124 49,133 55,133 L 73,133"
-              stroke="#FF3D00"
-              strokeWidth="5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M 85,133 L 85,115 L 106,133 L 106,115"
-              stroke="#000000"
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path d="M 118,133 L 118,115 M 139,115 L 120,124 L 139,133" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M 151,115 L 151,133" stroke="#000000" strokeWidth="4" strokeLinecap="round" />
-            <path d="M 42,158 L 54,158" stroke="#FF3D00" strokeWidth="3.5" strokeLinecap="round" />
-            <text
-              x="100"
-              y="163"
-              fontFamily="'Plus Jakarta Sans', sans-serif"
-              fontWeight="900"
-              fontSize="14"
-              letterSpacing="7"
-              fill="#000000"
-              textAnchor="middle"
-            >
-              BURGER
-            </text>
-            <path d="M 146,158 L 158,158" stroke="#FF3D00" strokeWidth="3.5" strokeLinecap="round" />
-          </svg>
+          <img src="/icon_enki.png" alt="Enki Burger Icon" className="w-24 h-24 mx-auto object-contain opacity-80 mix-blend-multiply" />
           <p className="text-xs text-stone-400 font-bold uppercase tracking-wider">
             Adicione hambúrgueres para iniciar.
           </p>

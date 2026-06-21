@@ -37,6 +37,9 @@ body {
 
 /* Print thermal receipt template */
 @media print {
+  @page {
+    margin: 0;
+  }
   body * {
     visibility: hidden !important;
   }
@@ -49,11 +52,18 @@ body {
     left: 0 !important;
     top: 0 !important;
     width: 80mm !important;
-    padding: 2mm !important;
-    font-family: 'Courier New', Courier, monospace !important;
-    font-size: 16px !important;
-    line-height: 1.4 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: 'Courier New', Courier, monospace, sans-serif !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
     color: #000 !important;
     background: #fff !important;
+  }
+  #thermal-receipt pre {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    font-family: inherit !important;
   }
 }
