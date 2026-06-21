@@ -222,12 +222,13 @@ export function CheckoutView({
           const names = name.trim().split(" ");
           
           const targetUrl = "https://api.mercadopago.com/v1/payments";
-          const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(targetUrl);
+          const proxyUrl = "https://proxy.cors.sh/" + targetUrl;
 
           const directRes = await fetch(proxyUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "x-cors-api-key": "temp_" + Date.now(),
               "Authorization": `Bearer ${mpAccessToken.trim()}`,
               "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
             },
@@ -261,9 +262,7 @@ export function CheckoutView({
         } catch (networkErr: any) {
           console.warn("Mercado Pago fail:", networkErr);
           if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
-            showToast("Servidor estático (CORS). Redirecionando pagamento Pix para o WhatsApp...", "success");
-            onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix (Chave via WhatsApp)", "", "PAY-MANUAL", "Pendente", deliveryType);
-            return;
+            throw new Error("Conexão com Mercado Pago falhou. O proxy (CORS) pode estar bloqueado por um AdBlocker. Desative o AdBlocker ou escolha outra forma de pagamento.");
           }
           throw new Error(networkErr.message || "Falha na comunicação com o Mercado Pago.");
         }
@@ -351,9 +350,12 @@ export function CheckoutView({
                   } catch (directErr) {
                       try {
                           const targetUrl = `https://api.mercadopago.com/v1/payments/${pId}`;
-                          const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(targetUrl);
+                          const proxyUrl = "https://proxy.cors.sh/" + targetUrl;
                           const s = await fetch(proxyUrl, {
-                              headers: { "Authorization": `Bearer ${mpAccessToken}` }
+                              headers: { 
+                                  "Authorization": `Bearer ${mpAccessToken}`,
+                                  "x-cors-api-key": "temp_" + Date.now()
+                              }
                           });
                           const sj = await s.json();
                           if (sj.status === "approved" || sj.status === "authorized") {
@@ -414,12 +416,13 @@ export function CheckoutView({
           }
 
           const targetUrl = "https://api.mercadopago.com/checkout/preferences";
-          const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(targetUrl);
+          const proxyUrl = "https://proxy.cors.sh/" + targetUrl;
 
           const directRes = await fetch(proxyUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "x-cors-api-key": "temp_" + Date.now(),
               "Authorization": `Bearer ${mpAccessToken.trim()}`
             },
             body: JSON.stringify({
@@ -457,9 +460,7 @@ export function CheckoutView({
         } catch (networkErr: any) {
           console.warn("Mercado Pago fail:", networkErr);
           if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
-            showToast("Servidor estático (CORS). Redirecionando pagamento Cartão para o WhatsApp...", "success");
-            onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Cartão (Link/Maquininha via WhatsApp)", "", "PAY-MANUAL", "Pendente", deliveryType);
-            return;
+            throw new Error("Conexão com Mercado Pago falhou. O proxy (CORS) pode estar bloqueado por um AdBlocker. Desative o AdBlocker ou escolha outra forma de pagamento.");
           }
           throw new Error(networkErr.message || "Falha na comunicação com o Mercado Pago.");
         }
