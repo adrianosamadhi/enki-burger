@@ -1246,13 +1246,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
   };
 
   const handleAdvanceToCheckout = () => {
-    const activeAddons = adicionais.filter((a) => a.ativo);
-    if (activeAddons.length > 0 && view !== "checkout") {
-      setUpsellQuantities({});
-      setUpsellModalOpen(true);
-    } else {
-      setReviewOrderModalOpen(true);
-    }
+    setReviewOrderModalOpen(true);
   };
 
   const executeCheckoutSubmit = () => {

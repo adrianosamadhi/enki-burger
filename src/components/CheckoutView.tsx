@@ -214,76 +214,50 @@ export function CheckoutView({
         let isSimulation = false;
         
         try {
-          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
+          let mpAccessToken = config.mpAccessToken?.trim();
+          if (!mpAccessToken) {
+            throw new Error("Token ausente");
+          }
+          const names = name.trim().split(" ");
+          const mpRes = await fetch("https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${mpAccessToken}`,
+              "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
             },
             body: JSON.stringify({
-              paymentMethod: "Pix",
-              total: Number(total),
-              name,
-              phone,
-              email: "compras@enkiburger.com.br",
-              storeName: config.storeName || "Enki Burger",
-              mpAccessToken
+              transaction_amount: Number(Number(total).toFixed(2)),
+              description: `Compra - ${config.storeName || "Enki Burger"}`,
+              payment_method_id: "pix",
+              payer: {
+                email: "compras@enkiburger.com.br",
+                first_name: names[0] || "Cliente",
+                last_name: names.slice(1).join(" ") || "Enki"
+              }
             })
           });
 
           if (!mpRes.ok) {
-            const errData = await mpRes.json().catch(() => ({}));
-            console.error("Mercado Pago API Pix Error:", errData);
-            throw new Error(errData.error || "Erro ao processar Pix através do servidor.");
+            let errInfoText = "";
+            try {
+              const errData = await mpRes.json();
+              errInfoText = errData.message || errData.error || JSON.stringify(errData);
+            } catch (jsonErr) {
+              errInfoText = "Falha ao analisar a resposta de erro do MP.";
+            }
+            console.error("Mercado Pago API Pix Error:", errInfoText);
+            throw new Error(`Credenciais inválidas ou erro MP: ${errInfoText}`);
           }
 
           const data = await mpRes.json();
-          pId = data.paymentId;
-          pixKey = data.pixKey;
-          isSimulation = data.isSimulation;
+          pId = data.id;
+          pixKey = data.point_of_interaction?.transaction_data?.qr_code;
+          isSimulation = false;
         } catch (networkErr: any) {
-          // If backend fetch fails (e.g., Github Pages static site), try direct MP API via Proxy
-          console.warn("Backend indisponível, tentando integração direta via proxy com MP...", networkErr);
+          console.warn("Direct MP api fail or returned error:", networkErr.message || networkErr);
           
-          let mpAccessToken = config.mpAccessToken?.trim();
-          
-          if (mpAccessToken) {
-            try {
-              const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.mercadopago.com/v1/payments");
-              const names = name.trim().split(" ");
-              const pixRes = await fetch(mpApiUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${mpAccessToken}`,
-                  "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
-                },
-                body: JSON.stringify({
-                  transaction_amount: Number(Number(total).toFixed(2)),
-                  description: `Compra - ${config.storeName || "Enki Burger"}`,
-                  payment_method_id: "pix",
-                  payer: {
-                    email: "compras@enkiburger.com.br",
-                    first_name: names[0] || "Cliente",
-                    last_name: names.slice(1).join(" ") || "Enki"
-                  }
-                })
-              });
-              
-              if (pixRes.ok) {
-                const pixData = await pixRes.json();
-                pId = pixData.id;
-                pixKey = pixData.point_of_interaction?.transaction_data?.qr_code;
-                isSimulation = false; // Real payment!
-              } else {
-                const errText = await pixRes.text();
-                console.error("Direct proxy response error:", errText);
-                throw new Error("Erro MP: " + (errText.substring(0, 80) || pixRes.statusText));
-              }
-            } catch (proxyErr: any) {
-              console.error("Proxy integration failed", proxyErr);
-              throw new Error("Falha no pagamento (Credenciais/Token ou Proxy): " + proxyErr.message);
-            }
-          } else {
+          if (!config.mpAccessToken || networkErr.message === "Token ausente") {
              isSimulation = true;
              pId = "MP-GH-" + Math.floor(100000 + Math.random() * 900000);
              const payloadStore = (config.storeName || "Enki Burger").substring(0, 15).toUpperCase();
@@ -291,6 +265,8 @@ export function CheckoutView({
              const formattedTotal = Number(total).toFixed(2);
              pixKey = `00020126580014BR.GOV.BCBC.PIX0136e9ff97-ad20-4e2a-b6b8-2ea9c98ef2e55204000053039865405${formattedTotal}5802BR5911${cleanStore.substring(0, 10)}6009SAOPAULO62070503***6304CAFE`;
              showToast("Modo Estático Ativo. Sem Token de Acesso.", "success");
+          } else {
+             throw new Error(networkErr.message || "Falha na comunicação com o MP (Token Inválido).");
           }
         }
 
@@ -374,7 +350,7 @@ export function CheckoutView({
              
              if (mpAccessToken) {
                 try {
-                    const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent(`https://api.mercadopago.com/v1/payments/${pId}`);
+                    const mpApiUrl = `https://api.mercadopago.com/v1/payments/${pId}`;
                     const s = await fetch(mpApiUrl, {
                         headers: { "Authorization": `Bearer ${mpAccessToken}` }
                     });
@@ -389,19 +365,6 @@ export function CheckoutView({
                 } catch (e) {
                     console.error("Erro ao verificar pagamento via polling", e);
                 }
-             } else {
-                 // Try backend route just in case
-                 try {
-                     const s = await fetch(getApiUrl(`/api/checkout/mp/status/${pId}`));
-                     const sj = await s.json();
-                     if (sj.status === "approved" || sj.status === "authorized") {
-                        showToast("Pagamento Pix aprovado com sucesso!", "success");
-                        onCloseModal();
-                        onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                        stopPolling();
-                        return;
-                     }
-                 } catch (e) {}
              }
 
              if (isPolling) {
@@ -442,81 +405,56 @@ export function CheckoutView({
         let isSimulation = false;
         
         try {
-          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
+          if (!mpAccessToken) {
+            throw new Error("Token ausente");
+          }
+          const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
             method: "POST",
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${mpAccessToken}`
             },
             body: JSON.stringify({
-              paymentMethod: "Cartão",
-              total: Number(total),
-              name,
-              phone,
-              email: "compras@enkiburger.com.br",
-              storeName: config.storeName || "Enki Burger",
-              mpAccessToken
+              items: [
+                {
+                  title: `Compra - ${config.storeName || "Enki Burger"}`,
+                  description: "Pedido online",
+                  quantity: 1,
+                  currency_id: "BRL",
+                  unit_price: Number(Number(total).toFixed(2))
+                }
+              ],
+              payer: {
+                email: "compras@enkiburger.com.br",
+                name: name
+              }
             })
           });
 
           if (!mpRes.ok) {
-            const errData = await mpRes.json().catch(() => ({}));
-            console.error("Mercado Pago API Preference Error:", errData);
-            throw new Error(errData.error || "Erro ao gerar link de pagamento seguro.");
+            let errInfoText = "";
+            try {
+              const errData = await mpRes.json();
+              errInfoText = errData.message || errData.error || JSON.stringify(errData);
+            } catch (jsonErr) {
+              errInfoText = "Failed to parse error response from MP.";
+            }
+            console.error("Mercado Pago API Preference Error:", errInfoText);
+            throw new Error(`Credenciais inválidas ou erro MP: ${errInfoText}`);
           }
 
           const data = await mpRes.json();
-          pId = data.paymentId;
-          initPoint = data.initPoint;
-          isSimulation = data.isSimulation;
+          pId = data.id;
+          initPoint = data.init_point;
+          isSimulation = false;
         } catch (networkErr: any) {
-          console.warn("Backend indisponível, tentando integração direta de Card via proxy MP...", networkErr);
-          
-          let mpAccessToken = config.mpAccessToken?.trim();
-          
-          if (mpAccessToken) {
-            try {
-              const mpApiUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.mercadopago.com/checkout/preferences");
-              
-              const prefRes = await fetch(mpApiUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${mpAccessToken}`
-                },
-                body: JSON.stringify({
-                  items: [
-                    {
-                      title: `Compra - ${config.storeName || "Enki Burger"}`,
-                      description: "Pedido online",
-                      quantity: 1,
-                      currency_id: "BRL",
-                      unit_price: Number(Number(total).toFixed(2))
-                    }
-                  ],
-                  payer: {
-                    email: "compras@enkiburger.com.br"
-                  }
-                })
-              });
-              
-              if (prefRes.ok) {
-                const prefData = await prefRes.json();
-                pId = prefData.id;
-                initPoint = prefData.init_point;
-                isSimulation = false;
-              } else {
-                const errText = await prefRes.text();
-                console.error("Direct proxy response error:", errText);
-                throw new Error("Erro MP: " + (errText.substring(0, 80) || prefRes.statusText));
-              }
-            } catch (proxyErr: any) {
-              console.error("Proxy integration failed", proxyErr);
-              throw new Error("Falha no pagamento (Credenciais/Token ou Proxy): " + proxyErr.message);
-            }
-          } else {
+          console.warn("Direct MP api fail or returned error:", networkErr.message || networkErr);
+          if (!config.mpAccessToken || networkErr.message === "Token ausente") {
              isSimulation = true;
              pId = "MP-PREF-" + Math.floor(100000 + Math.random() * 900000);
              showToast("Modo Estático Ativo. Sem Token de Acesso.", "success");
+          } else {
+             throw new Error(networkErr.message || "Falha na comunicação com o MP (Token Inválido).");
           }
         }
 
