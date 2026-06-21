@@ -221,11 +221,15 @@ export function CheckoutView({
 
           const names = name.trim().split(" ");
           
-          const directRes = await fetch("https://api.mercadopago.com/v1/payments", {
+          const targetUrl = "https://api.mercadopago.com/v1/payments";
+          const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(targetUrl);
+
+          const directRes = await fetch(proxyUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${mpAccessToken.trim()}`
+              "Authorization": `Bearer ${mpAccessToken.trim()}`,
+              "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
             },
             body: JSON.stringify({
               transaction_amount: Number(Number(total).toFixed(2)),
@@ -346,8 +350,9 @@ export function CheckoutView({
                       }
                   } catch (directErr) {
                       try {
-                          const mpApiUrl = `https://api.mercadopago.com/v1/payments/${pId}`;
-                          const s = await fetch(mpApiUrl, {
+                          const targetUrl = `https://api.mercadopago.com/v1/payments/${pId}`;
+                          const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(targetUrl);
+                          const s = await fetch(proxyUrl, {
                               headers: { "Authorization": `Bearer ${mpAccessToken}` }
                           });
                           const sj = await s.json();
@@ -408,7 +413,10 @@ export function CheckoutView({
             throw new Error("Token do Mercado Pago ausente nas configurações.");
           }
 
-          const directRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
+          const targetUrl = "https://api.mercadopago.com/checkout/preferences";
+          const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(targetUrl);
+
+          const directRes = await fetch(proxyUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
