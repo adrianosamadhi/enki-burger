@@ -220,6 +220,7 @@ export function CheckoutView({
           }
 
           const names = name.trim().split(" ");
+          
           const directRes = await fetch("https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
@@ -256,6 +257,12 @@ export function CheckoutView({
           isSimulation = false;
         } catch (networkErr: any) {
           console.warn("Mercado Pago fail:", networkErr);
+          if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
+            console.warn("API do Mercado Pago foi bloqueada (Possível CORS ou AdBlocker). Redirecionando para WhatsApp.");
+            showToast("A conexão com Mercado Pago foi bloqueada. Redirecionando para WhatsApp...", "error");
+            onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix (Chave via WhatsApp)", "", "PAY-MANUAL", "Pendente", deliveryType);
+            return; // Stops here, modal will not open
+          }
           throw new Error(networkErr.message || "Falha na comunicação com o Mercado Pago.");
         }
 
@@ -341,8 +348,10 @@ export function CheckoutView({
                       }
                   } catch (directErr) {
                       try {
-                          const mpApiUrl = getApiUrl(`/api/checkout/mp/status/${pId}?token=${encodeURIComponent(mpAccessToken)}`);
-                          const s = await fetch(mpApiUrl);
+                          const mpApiUrl = `https://api.mercadopago.com/v1/payments/${pId}`;
+                          const s = await fetch(mpApiUrl, {
+                              headers: { "Authorization": `Bearer ${mpAccessToken}` }
+                          });
                           const sj = await s.json();
                           if (sj.status === "approved" || sj.status === "authorized") {
                               showToast("Pagamento Pix recebido com sucesso!", "success");
@@ -441,6 +450,12 @@ export function CheckoutView({
           isSimulation = false;
         } catch (networkErr: any) {
           console.warn("Mercado Pago fail:", networkErr);
+          if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
+            console.warn("API Mercado Pago bloqueou a conexão (Possível CORS no domínio atual). Redirecionando para WhatsApp.");
+            showToast("Conexão direta bloqueada. Redirecionando para pagamento via WhatsApp...", "error");
+            onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Cartão (Link/Maquininha via WhatsApp)", "", "PAY-MANUAL", "Pendente", deliveryType);
+            return; // Stops modal
+          }
           throw new Error(networkErr.message || "Falha na comunicação com o Mercado Pago.");
         }
 
