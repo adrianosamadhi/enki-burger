@@ -199,8 +199,7 @@ export default function App() {
     const orderId = dbItem.gateway_id || `PED-${dbItem.id || Math.floor(1000 + Math.random() * 9000)}`;
     const dataHora = dbItem.created_at ? new Date(dbItem.created_at).toLocaleString("pt-BR") : new Date().toLocaleString("pt-BR");
     
-    const receipt = `
-<pre>
+    const receipt = `<pre>
 ----------------------------------------
              ${config.storeName.toUpperCase()}
 ----------------------------------------
@@ -213,8 +212,7 @@ ENDEREÇO: ${(dbItem.endereco || "RETIRADA NO BALCÃO").toUpperCase()}
 ${dbItem.pedido_detalhes || ""}
 ----------------------------------------
 TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
-----------------------------------------
-</pre>`;
+----------------------------------------</pre>`;
     setReceiptHtml(receipt);
     setTimeout(() => {
       window.print();
@@ -449,15 +447,15 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
             playNotificationSound();
           }
           
-          // Executa a auto-impressão se habilitada e apenas se o pagamento estiver concluido/aprovado
+          // Executa a auto-impressão se habilitada
           if (
             safeStorage.getItem("enki_auto_print") === "true" && 
             payload && 
             payload.new
           ) {
             const status = payload.new.gateway_status;
-            // Apenas imprime se for aprovado no checkout online, ou se for pagamento na entrega (onde a validação é manual)
-            if (status === "Aprovado" || payload.new.pagamento === "Maquininha na Entrega" || payload.new.pagamento === "Dinheiro na Entrega") {
+            // Apenas imprime se for aprovado no checkout online, ou se for pagamento na entrega (que entra como Pendente)
+            if (status === "Aprovado" || status === "Pendente") {
               printDirectDbOrder(payload.new);
             }
           }
@@ -1408,8 +1406,7 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     if (!o) return;
     const itemsText = o.resumoItensString;
 
-    const receipt = `
-<pre>
+    const receipt = `<pre>
 ========================================
        ${config.storeName.toUpperCase()}
 ========================================
@@ -1421,8 +1418,7 @@ ${itemsText}
 ========================================
 TOTAL: ${formatBRL(o.total)}
 PAGAMENTO: ${o.pagamento.toUpperCase()}
-========================================
-</pre>`;
+========================================</pre>`;
     setReceiptHtml(receipt);
     setTimeout(() => {
       window.print();
@@ -1430,8 +1426,7 @@ PAGAMENTO: ${o.pagamento.toUpperCase()}
   };
 
   const printTestOutput = () => {
-    const receipt = `
-<pre>
+    const receipt = `<pre>
 ========================================
        ${config.storeName.toUpperCase()}
 ========================================
@@ -1448,8 +1443,7 @@ TOTAL: R$ 0,00
 PAGAMENTO: TESTE
 ========================================
      VERIFIQUE ALINHAMENTO E TAMANHO
-========================================
-</pre>`;
+========================================</pre>`;
     setReceiptHtml(receipt);
     setTimeout(() => {
       window.print();
