@@ -1378,48 +1378,20 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     const itemsText = o.resumoItensString;
 
     const receipt = `
-<pre>
-========================================
-       ${config.storeName.toUpperCase()}
-========================================
+      <pre>
+----------------------------------------
+             ${config.storeName.toUpperCase()}
+----------------------------------------
 PEDIDO: ${o.id}
 DATA: ${o.dataHora}
 CLIENTE: ${o.nome.toUpperCase()}
-========================================
+----------------------------------------
 ${itemsText}
-========================================
+----------------------------------------
 TOTAL: ${formatBRL(o.total)}
 PAGAMENTO: ${o.pagamento.toUpperCase()}
-========================================
-</pre>
-    `;
-    setReceiptHtml(receipt);
-    setTimeout(() => {
-      window.print();
-    }, 150);
-  };
-
-  const printTestOutput = () => {
-    const receipt = `
-<pre>
-========================================
-       ${config.storeName.toUpperCase()}
-========================================
-          TESTE DE IMPRESSÃO
-========================================
-DATA: ${new Date().toLocaleString('pt-BR')}
-CLIENTE: SISTEMA CARDÁPIO
-========================================
-1x Teste de Impressão Térmica
-   - Detalhes visíveis
-   - Texto legível e bem ajustado
-========================================
-TOTAL: R$ 0,00
-PAGAMENTO: TESTE
-========================================
-     VERIFIQUE ALINHAMENTO E TAMANHO
-========================================
-</pre>
+----------------------------------------
+      </pre>
     `;
     setReceiptHtml(receipt);
     setTimeout(() => {
@@ -1833,7 +1805,6 @@ PAGAMENTO: TESTE
                   showToast("Sessão administrativa encerrada.", "success");
                 }}
                 onPrintOrder={printReceiptOutput}
-                onPrintTest={printTestOutput}
                 showToast={showToast}
                 onShowModal={(title, body, actions) => setGeneralModal({ title, body, actions })}
                 onCloseModal={() => setGeneralModal(null)}
