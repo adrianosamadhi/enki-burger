@@ -294,7 +294,8 @@ export function CheckoutView({
                                networkErr.message.toLowerCase().includes("invalid credential") || 
                                networkErr.message.toLowerCase().includes("token inválido") ||
                                networkErr.message.toLowerCase().includes("credential") ||
-                               networkErr.message.toLowerCase().includes("unauthorized_client");
+                               networkErr.message.toLowerCase().includes("unauthorized_client") ||
+                               networkErr.message.toLowerCase().includes("failed to fetch");
 
           if (isTokenError) {
              isSimulation = true;
@@ -547,7 +548,8 @@ export function CheckoutView({
                                networkErr.message.toLowerCase().includes("invalid credential") || 
                                networkErr.message.toLowerCase().includes("token inválido") ||
                                networkErr.message.toLowerCase().includes("credential") ||
-                               networkErr.message.toLowerCase().includes("unauthorized_client");
+                               networkErr.message.toLowerCase().includes("unauthorized_client") ||
+                               networkErr.message.toLowerCase().includes("failed to fetch");
 
           if (isTokenError) {
              isSimulation = true;
