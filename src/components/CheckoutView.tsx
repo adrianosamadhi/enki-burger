@@ -221,7 +221,7 @@ export function CheckoutView({
 
           const names = name.trim().split(" ");
           
-          const directRes = await fetch("https://corsproxy.org/?https://api.mercadopago.com/v1/payments", {
+          const directRes = await fetch("https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -244,22 +244,20 @@ export function CheckoutView({
             let errInfoText = "";
             try {
               const errData = await directRes.json();
-              console.error("Erro MercadoPago (PIX):", errData);
-              errInfoText = errData.message || JSON.stringify(errData);
+              errInfoText = errData.message || errData.error || JSON.stringify(errData);
             } catch (jsonErr) {
-              errInfoText = "Falha ao analisar a resposta de erro do Mercado Pago (PIX).";
-              console.error("Erro desconhecido MercadoPago PIX:", directRes.statusText);
+              errInfoText = "Falha ao analisar a resposta do Mercado Pago.";
             }
-            throw new Error(errInfoText || "Erro ao processar pagamento Pix no Mercado Pago.");
+            throw new Error(errInfoText || "Credenciais inválidas ou erro no pagador.");
           }
 
           const data = await directRes.json();
           pId = data.id;
           pixKey = data.point_of_interaction?.transaction_data?.qr_code;
           isSimulation = false;
-        } catch (error: any) {
-          console.error("Exceção detalhada ao chamar Mercado Pago (PIX):", error);
-          throw new Error(error.message || "Falha na comunicação com o Mercado Pago.");
+        } catch (networkErr: any) {
+          console.error("Mercado Pago fail:", networkErr);
+          throw new Error(networkErr.message || "Falha na comunicação com o Mercado Pago.");
         }
 
         const handleCopyKey = () => {
@@ -327,24 +325,23 @@ export function CheckoutView({
                
                if (mpAccessToken) {
                   try {
-                      const res = await fetch(`https://corsproxy.org/?https://api.mercadopago.com/v1/payments/${pId}`, {
-                          headers: { "Authorization": `Bearer ${mpAccessToken.trim()}` }
+                      const mpApiUrl = `https://api.mercadopago.com/v1/payments/${pId}`;
+                      const s = await fetch(mpApiUrl, {
+                          headers: { "Authorization": `Bearer ${mpAccessToken}` }
                       });
-
-                      if (res.ok) {
-                          const data = await res.json();
-                          if (data.status === "approved" || data.status === "authorized") {
+                      
+                      if (s.ok) {
+                          const sj = await s.json();
+                          if (sj.status === "approved" || sj.status === "authorized") {
                               showToast("Pagamento Pix recebido com sucesso!", "success");
                               onCloseModal();
                               onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
                               stopPolling();
                               return;
                           } 
-                      } else {
-                          console.error("Falha ao checar status do PIX:", await res.text());
                       }
-                  } catch (e) {
-                      console.error("Exceção detalhada no polling:", e);
+                  } catch (directErr) {
+                      console.error("Falha ao checar status do PIX:", directErr);
                   }
                }
 
@@ -392,7 +389,7 @@ export function CheckoutView({
             throw new Error("Token do Mercado Pago ausente nas configurações.");
           }
 
-          const directRes = await fetch("https://corsproxy.org/?https://api.mercadopago.com/checkout/preferences", {
+          const directRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -419,11 +416,9 @@ export function CheckoutView({
             let errInfoText = "";
             try {
               const errData = await directRes.json();
-              console.error("Erro MercadoPago (Preference):", errData);
-              errInfoText = errData.message || JSON.stringify(errData);
+              errInfoText = errData.message || errData.error || JSON.stringify(errData);
             } catch (jsonErr) {
-              errInfoText = "Falha ao analisar a resposta de erro do Mercado Pago (Preference).";
-              console.error("Erro desconhecido MercadoPago Preference:", directRes.statusText);
+              errInfoText = "Falha ao analisar a resposta do Mercado Pago.";
             }
             throw new Error(errInfoText || "Erro ao gerar link de pagamento.");
           }
@@ -432,9 +427,9 @@ export function CheckoutView({
           pId = data.id;
           initPoint = data.init_point;
           isSimulation = false;
-        } catch (error: any) {
-          console.error("Exceção detalhada ao chamar Mercado Pago (Preference):", error);
-          throw new Error(error.message || "Falha na comunicação com o Mercado Pago.");
+        } catch (networkErr: any) {
+          console.error("Mercado Pago fail:", networkErr);
+          throw new Error(networkErr.message || "Falha na comunicação com o Mercado Pago.");
         }
 
         // Real Mercado Pago Hosted Preference Checkout! (Direct and secure routing to credit card, pix, ticket, etc.)
