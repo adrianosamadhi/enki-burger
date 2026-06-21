@@ -214,88 +214,45 @@ export function CheckoutView({
         let isSimulation = false;
         
         try {
-          try {
-            const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                paymentMethod: "Pix",
-                total: Number(total),
-                name,
-                phone,
-                email: "compras@enkiburger.com.br",
-                storeName: config.storeName || "Enki Burger",
-                mpAccessToken
-              })
-            });
+          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              paymentMethod: "Pix",
+              total: Number(total),
+              name,
+              phone,
+              email: "compras@enkiburger.com.br",
+              storeName: config.storeName || "Enki Burger",
+              mpAccessToken: config.mpAccessToken
+            })
+          });
 
-            if (mpRes.ok) {
-              const data = await mpRes.json();
-              pId = data.paymentId;
-              pixKey = data.pixKey;
-              isSimulation = data.isSimulation;
-            } else {
-              throw new Error("Server proxy failure status");
+          if (mpRes.ok) {
+            const data = await mpRes.json();
+            pId = data.paymentId;
+            pixKey = data.pixKey;
+            isSimulation = data.isSimulation;
+          } else {
+            let errorText = "Erro ao processar através do servidor.";
+            try {
+              const errData = await mpRes.json();
+              errorText = errData.error || errData.message || JSON.stringify(errData);
+            } catch (e) {
+               // Ignore JSON parsing errors
             }
-          } catch (serverErr) {
-            console.warn("Server proxy failed, calling Mercado Pago API directly from browser:", serverErr);
-            
-            if (!mpAccessToken?.trim()) {
-              throw new Error("Token ausente");
-            }
-            
-            const names = name.trim().split(" ");
-            const directRes = await fetch("https://api.mercadopago.com/v1/payments", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${mpAccessToken}`,
-                "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
-              },
-              body: JSON.stringify({
-                transaction_amount: Number(Number(total).toFixed(2)),
-                description: `Compra - ${config.storeName || "Enki Burger"}`,
-                payment_method_id: "pix",
-                payer: {
-                  email: "compras@enkiburger.com.br",
-                  first_name: names[0] || "Cliente",
-                  last_name: names.slice(1).join(" ") || "Enki"
-                }
-              })
-            });
-
-            if (!directRes.ok) {
-              let errInfoText = "";
-              try {
-                const errData = await directRes.json();
-                errInfoText = errData.message || errData.error || JSON.stringify(errData);
-              } catch (jsonErr) {
-                errInfoText = "Falha ao analisar a resposta de erro do MP.";
-              }
-              console.error("Mercado Pago API Pix Error:", errInfoText);
-              throw new Error(errInfoText || "Credenciais inválidas ou erro MP");
-            }
-
-            const data = await directRes.json();
-            pId = data.id;
-            pixKey = data.point_of_interaction?.transaction_data?.qr_code;
-            isSimulation = false;
+            throw new Error(errorText);
           }
         } catch (networkErr: any) {
-          console.warn("Server checkout fail, attempting static simulation block:", networkErr.message || networkErr);
+          console.warn("Mercado Pago Request Fail:", networkErr.message || networkErr);
           
           const isTokenError = !config.mpAccessToken || 
-                               networkErr.message === "Token ausente" || 
-                               networkErr.message.includes("Token Mercado Pago ausente") || 
-                               networkErr.message.toLowerCase().includes("invalid access token") || 
-                               networkErr.message.toLowerCase().includes("unauthorized") || 
+                               networkErr.message.toLowerCase().includes("ausente") || 
                                networkErr.message.toLowerCase().includes("invalid credential") || 
                                networkErr.message.toLowerCase().includes("token inválido") ||
-                               networkErr.message.toLowerCase().includes("credential") ||
-                               networkErr.message.toLowerCase().includes("unauthorized_client") ||
-                               networkErr.message.toLowerCase().includes("failed to fetch");
+                               networkErr.message.toLowerCase().includes("unauthorized");
 
           if (isTokenError) {
              isSimulation = true;
@@ -306,7 +263,7 @@ export function CheckoutView({
              pixKey = `00020126580014BR.GOV.BCBC.PIX0136e9ff97-ad20-4e2a-b6b8-2ea9c98ef2e55204000053039865405${formattedTotal}5802BR5911${cleanStore.substring(0, 10)}6009SAOPAULO62070503***6304CAFE`;
              showToast("Modo Estático Ativo. Sem Token de Acesso Válido.", "success");
           } else {
-             throw new Error(networkErr.message || "Falha na comunicação com o Servidor (Token Inválido).");
+             throw new Error("Falha no Checkout: " + (networkErr.message || "Erro desconhecido"));
           }
         }
 
@@ -330,11 +287,7 @@ export function CheckoutView({
             <p className="text-[11px] text-stone-500 leading-relaxed font-sans">
               Leia o código QR no app do seu banco ou copie a chave Pix abaixo.
             </p>
-            {isSimulation && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[10px] text-amber-700 leading-normal max-w-xs mx-auto">
-                <strong>Simulação Habilitada:</strong> Para receber pagamentos reais, configure seu Token de Acesso MP no painel.
-              </div>
-            )}
+            
             <div className="bg-stone-50 p-4 rounded-xl inline-block border border-stone-200/50">
               <img 
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pixKey)}`} 
@@ -343,6 +296,7 @@ export function CheckoutView({
                 referrerPolicy="no-referrer"
               />
             </div>
+            
             <div className="relative mt-2">
               <textarea
                 readOnly
@@ -357,13 +311,19 @@ export function CheckoutView({
                 <Copy className="w-3.5 h-3.5" /> Copiar Código
               </button>
             </div>
-            
-            <div className="mt-4 flex flex-col items-center justify-center gap-2">
-              <div className="w-5 h-5 border-2 border-stone-300 border-t-blue-600 rounded-full animate-spin" />
-              <p className="text-[11px] font-bold text-stone-600 animate-pulse">
-                Aguardando confirmação do pagamento...
-              </p>
-            </div>
+
+            {isSimulation ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[10px] text-amber-700 leading-normal max-w-xs mx-auto mt-4">
+                <strong>Simulação Habilitada:</strong> Para testar a aprovação, clique abaixo.
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-col items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-stone-300 border-t-blue-600 rounded-full animate-spin" />
+                <p className="text-[11px] font-bold text-stone-600 animate-pulse">
+                  Aguardando confirmação do pagamento...
+                </p>
+              </div>
+            )}
           </div>
         );
 
@@ -375,67 +335,70 @@ export function CheckoutView({
           if (pollingInterval) clearTimeout(pollingInterval);
         };
 
-        const checkStatus = async () => {
-             if (!isPolling) return;
-             
-             if (isSimulation) {
-                 showToast("Pagamento simulado aprovado automaticamente!", "success");
-                 onCloseModal();
-                 onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                 stopPolling();
-                 return;
-             }
-             
-             let mpAccessToken = config.mpAccessToken?.trim();
-             
-             if (mpAccessToken) {
-                try {
-                    // Try browser direct check first
-                    const mpApiUrl = `https://api.mercadopago.com/v1/payments/${pId}`;
-                    const s = await fetch(mpApiUrl, {
-                        headers: { "Authorization": `Bearer ${mpAccessToken}` }
-                    });
-                    
-                    if (s.ok) {
-                        const sj = await s.json();
-                        if (sj.status === "approved" || sj.status === "authorized") {
-                            showToast("Pagamento Pix aprovado com sucesso!", "success");
-                            onCloseModal();
-                            onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                            stopPolling();
-                            return;
-                        } 
-                    } else {
-                        throw new Error("Direct check failed");
-                    }
-                } catch (directErr) {
-                    // Fallback to server proxy
-                    try {
-                        const mpApiUrl = getApiUrl(`/api/checkout/mp/status/${pId}?token=${encodeURIComponent(mpAccessToken)}`);
-                        const s = await fetch(mpApiUrl);
-                        const sj = await s.json();
-                        if (sj.status === "approved" || sj.status === "authorized") {
-                            showToast("Pagamento Pix aprovado com sucesso!", "success");
-                            onCloseModal();
-                            onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                            stopPolling();
-                            return;
-                        } 
-                    } catch (e) {
-                        console.error("Erro ao verificar pagamento via polling", e);
-                    }
-                }
-             }
+            const checkStatus = async () => {
+              if (!isPolling) return;
+              if (isSimulation) return; // Simulation agora precisa de clique manual no botão Confirmar Simulação, nunca aprovar automático.
 
-             if (isPolling) {
-                 pollingInterval = setTimeout(checkStatus, 5000);
-             }
-        };
+              let mpAccessToken = config.mpAccessToken?.trim();
+              
+              if (mpAccessToken) {
+                 try {
+                     const mpApiUrl = `https://api.mercadopago.com/v1/payments/${pId}`;
+                     const s = await fetch(mpApiUrl, {
+                         headers: { "Authorization": `Bearer ${mpAccessToken}` }
+                     });
+                     
+                     if (s.ok) {
+                         const sj = await s.json();
+                         if (sj.status === "approved" || sj.status === "authorized") {
+                             showToast("Pagamento Pix recebido com sucesso!", "success");
+                             onCloseModal();
+                             onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                             stopPolling();
+                             return;
+                         } 
+                     }
+                 } catch (directErr) {
+                     try {
+                         const mpApiUrl = getApiUrl(`/api/checkout/mp/status/${pId}?token=${encodeURIComponent(mpAccessToken)}`);
+                         const s = await fetch(mpApiUrl);
+                         const sj = await s.json();
+                         if (sj.status === "approved" || sj.status === "authorized") {
+                             showToast("Pagamento Pix recebido com sucesso!", "success");
+                             onCloseModal();
+                             onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                             stopPolling();
+                             return;
+                         } 
+                     } catch (e) {
+                         // Ignorar silenciosamente e tentar de novo no próximo poll
+                     }
+                 }
+              }
 
+              if (isPolling) {
+                  pollingInterval = setTimeout(checkStatus, 5000);
+              }
+            };
+
+        // Start polling after 5 seconds
         pollingInterval = setTimeout(checkStatus, 5000);
 
         const actions = (
           <React.Fragment>
+            {isSimulation && (
+              <button
+                onClick={() => {
+                  stopPolling();
+                  showToast("Pagamento simulado aprovado manualmente!", "success");
+                  onCloseModal();
+                  onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                }}
+                className="px-4 py-3 mb-2 font-bold text-sm text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors font-sans w-full"
+              >
+                Confirmar Simulação de Pagamento
+              </button>
+            )}
             <button
               onClick={() => {
                 stopPolling();
@@ -465,98 +428,52 @@ export function CheckoutView({
         let isSimulation = false;
         
         try {
-          try {
-            const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                paymentMethod: "Cartão",
-                total: Number(total),
-                name,
-                phone,
-                email: "compras@enkiburger.com.br",
-                storeName: config.storeName || "Enki Burger",
-                mpAccessToken
-              })
-            });
+          const mpRes = await fetch(getApiUrl("/api/checkout/mp"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              paymentMethod: "Cartão",
+              total: Number(total),
+              name,
+              phone,
+              email: "compras@enkiburger.com.br",
+              storeName: config.storeName || "Enki Burger",
+              mpAccessToken: config.mpAccessToken
+            })
+          });
 
-            if (mpRes.ok) {
-              const data = await mpRes.json();
-              pId = data.paymentId;
-              initPoint = data.initPoint;
-              isSimulation = data.isSimulation;
-            } else {
-              throw new Error("Server proxy failure status");
+          if (mpRes.ok) {
+            const data = await mpRes.json();
+            pId = data.paymentId;
+            initPoint = data.initPoint;
+            isSimulation = data.isSimulation;
+          } else {
+            let errorText = "Erro ao gerar link de pagamento.";
+            try {
+              const errData = await mpRes.json();
+              errorText = errData.error || errData.message || JSON.stringify(errData);
+            } catch (e) {
+               // Ignore JSON parsing errors
             }
-          } catch (serverErr) {
-            console.warn("Server proxy failed, calling Mercado Pago API directly from browser for preferences:", serverErr);
-            
-            if (!mpAccessToken?.trim()) {
-              throw new Error("Token ausente");
-            }
-            
-            const directRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${mpAccessToken}`
-              },
-              body: JSON.stringify({
-                items: [
-                  {
-                    title: `Compra - ${config.storeName || "Enki Burger"}`,
-                    description: "Pedido online",
-                    quantity: 1,
-                    currency_id: "BRL",
-                    unit_price: Number(Number(total).toFixed(2))
-                  }
-                ],
-                payer: {
-                  email: "compras@enkiburger.com.br",
-                  name: name
-                }
-              })
-            });
-
-            if (!directRes.ok) {
-              let errInfoText = "";
-              try {
-                const errData = await directRes.json();
-                errInfoText = errData.message || errData.error || JSON.stringify(errData);
-              } catch (jsonErr) {
-                errInfoText = "Failed to parse error response from MP.";
-              }
-              console.error("Mercado Pago API Preference Error:", errInfoText);
-              throw new Error(errInfoText || "Erro ao gerar link de pagamento.");
-            }
-
-            const data = await directRes.json();
-            pId = data.id;
-            initPoint = data.init_point;
-            isSimulation = false;
+            throw new Error(errorText);
           }
         } catch (networkErr: any) {
-          console.warn("Server checkout preferences fail, attempting simulation:", networkErr.message || networkErr);
+          console.warn("Mercado Pago Request Fail:", networkErr.message || networkErr);
           
           const isTokenError = !config.mpAccessToken || 
-                               networkErr.message === "Token ausente" || 
-                               networkErr.message.includes("Token Mercado Pago ausente") || 
-                               networkErr.message.toLowerCase().includes("invalid access token") || 
-                               networkErr.message.toLowerCase().includes("unauthorized") || 
+                               networkErr.message.toLowerCase().includes("ausente") || 
                                networkErr.message.toLowerCase().includes("invalid credential") || 
                                networkErr.message.toLowerCase().includes("token inválido") ||
-                               networkErr.message.toLowerCase().includes("credential") ||
-                               networkErr.message.toLowerCase().includes("unauthorized_client") ||
-                               networkErr.message.toLowerCase().includes("failed to fetch");
+                               networkErr.message.toLowerCase().includes("unauthorized");
 
           if (isTokenError) {
              isSimulation = true;
              pId = "MP-PREF-" + Math.floor(100000 + Math.random() * 900000);
              showToast("Modo Estático Ativo. Sem Token de Acesso Válido.", "success");
           } else {
-             throw new Error(networkErr.message || "Falha na comunicação com o Servidor (Token Inválido).");
+             throw new Error("Falha no Checkout: " + (networkErr.message || "Erro desconhecido"));
           }
         }
 
