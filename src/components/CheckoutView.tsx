@@ -225,8 +225,7 @@ export function CheckoutView({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${mpAccessToken.trim()}`,
-              "X-Idempotency-Key": "enki-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
+              "Authorization": `Bearer ${mpAccessToken.trim()}`
             },
             body: JSON.stringify({
               transaction_amount: Number(Number(total).toFixed(2)),
@@ -258,10 +257,9 @@ export function CheckoutView({
         } catch (networkErr: any) {
           console.warn("Mercado Pago fail:", networkErr);
           if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
-            console.warn("API do Mercado Pago foi bloqueada (Possível CORS ou AdBlocker). Redirecionando para WhatsApp.");
-            showToast("A conexão com Mercado Pago foi bloqueada. Redirecionando para WhatsApp...", "error");
+            showToast("Servidor estático (CORS). Redirecionando pagamento Pix para o WhatsApp...", "success");
             onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix (Chave via WhatsApp)", "", "PAY-MANUAL", "Pendente", deliveryType);
-            return; // Stops here, modal will not open
+            return;
           }
           throw new Error(networkErr.message || "Falha na comunicação com o Mercado Pago.");
         }
@@ -451,10 +449,9 @@ export function CheckoutView({
         } catch (networkErr: any) {
           console.warn("Mercado Pago fail:", networkErr);
           if (networkErr.message?.includes("Failed to fetch") || networkErr.message?.includes("fetch") || networkErr.message?.includes("NetworkError")) {
-            console.warn("API Mercado Pago bloqueou a conexão (Possível CORS no domínio atual). Redirecionando para WhatsApp.");
-            showToast("Conexão direta bloqueada. Redirecionando para pagamento via WhatsApp...", "error");
+            showToast("Servidor estático (CORS). Redirecionando pagamento Cartão para o WhatsApp...", "success");
             onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Cartão (Link/Maquininha via WhatsApp)", "", "PAY-MANUAL", "Pendente", deliveryType);
-            return; // Stops modal
+            return;
           }
           throw new Error(networkErr.message || "Falha na comunicação com o Mercado Pago.");
         }
