@@ -30,15 +30,73 @@ export function Header({ config, clientProfile, onProfileClick, onLogoClick }: H
               alt={config.storeName}
             />
           ) : config.storeName.toLowerCase().includes("enki") ? (
-            <div className="flex items-center gap-2">
-              <img src="/icon_enki.png" className="h-[48px] sm:h-[55px] w-auto object-contain drop-shadow-sm" alt="Enki Burger Icon" />
-              <h1 className="font-extrabold text-xl tracking-tight text-neutral-900 flex flex-col leading-none uppercase ml-1">
-                <span>{config.storeName}</span>
-                <span className="text-[10px] text-[#FF3D00] tracking-widest font-black mt-0.5">
-                  Cardápio Digital
-                </span>
-              </h1>
-            </div>
+            <svg className="h-[58px] sm:h-[64px] md:h-[68px] w-auto transition-all" viewBox="0 0 240 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M 15,30 C 15,16 23,12 35,12 C 47,12 55,16 55,30 Z"
+                stroke="#FF3D00"
+                strokeWidth="2.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 13,35 C 18,33 21,37 25,35 C 29,33 33,37 37,35 C 41,33 45,37 49,35 C 53,33 57,35 57,35"
+                stroke="#FF3D00"
+                strokeWidth="2.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M 17,40 L 30,40 L 35,46 L 40,40 L 53,40 C 55.5,40 55.5,46 53,46 L 17,46 C 14.5,46 14.5,40 17,40 Z"
+                stroke="#000000"
+                strokeWidth="2.8"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 17,49 L 53,49 C 55.5,49 55.5,55 53,55 L 17,55 C 14.5,55 14.5,49 17,49 Z"
+                stroke="#000000"
+                strokeWidth="2.8"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 98,22 L 78,22 C 70,22 70,33.5 78,33.5 L 94,33.5 M 78,33.5 C 70,33.5 70,45 78,45 L 98,45"
+                stroke="#FF3D00"
+                strokeWidth="3.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 112,45 L 112,22 L 138,45 L 138,22"
+                stroke="#000000"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 152,45 L 152,22 M 178,22 L 154,33.5 L 178,45"
+                stroke="#000000"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path d="M 192,22 L 192,45" stroke="#000000" strokeWidth="3.2" strokeLinecap="round" />
+              <path d="M 75,59 L 90,59" stroke="#FF3D00" strokeWidth="2.5" strokeLinecap="round" />
+              <text
+                x="128.5"
+                y="63"
+                fontFamily="'Plus Jakarta Sans', sans-serif"
+                fontWeight="800"
+                fontSize="12"
+                letterSpacing="5"
+                fill="#000000"
+                textAnchor="middle"
+              >
+                BURGER
+              </text>
+              <path d="M 167,59 L 182,59" stroke="#FF3D00" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
           ) : (
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-[#FF3D00] text-white rounded-2xl flex items-center justify-center shadow-md shadow-red-500/20">

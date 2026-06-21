@@ -81,31 +81,19 @@ export default function App() {
   });
 
   const [produtos, setProdutos] = useState<Product[]>(() => {
-    try {
-      const saved = safeStorage.getItem("cardapio_produtos");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.warn("Cache inválido, usando padrão", e);
-    }
-    return DEFAULT_PRODUCTS;
+    const saved = safeStorage.getItem("cardapio_produtos");
+    return saved ? JSON.parse(saved) : [];
   });
 
-  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(false);
+  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(() => {
+    const savedProducts = safeStorage.getItem("cardapio_produtos");
+    const parsed = savedProducts ? JSON.parse(savedProducts) : [];
+    return parsed.length === 0;
+  });
 
   const [adicionais, setAdicionais] = useState<Addon[]>(() => {
-    try {
-      const saved = safeStorage.getItem("cardapio_adicionais");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.warn("Cache inválido, usando padrão", e);
-    }
-    return DEFAULT_ADDONS;
+    const saved = safeStorage.getItem("cardapio_adicionais");
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(() => {
