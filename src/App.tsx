@@ -987,29 +987,41 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
     cep: string,
     referencia: string
   ) => {
-    const profile: ClientProfile = {
-      telefone,
-      nome,
-      cep: deliveryType === "retirada" ? "" : cep,
-      rua: deliveryType === "retirada" ? "" : rua,
-      numero: deliveryType === "retirada" ? "" : numero,
-      bairro: deliveryType === "retirada" ? "" : bairro,
-      referencia: deliveryType === "retirada" ? "" : referencia,
-    };
-    setClientProfile(profile);
-    safeStorage.setItem("enki_cliente_sessao", JSON.stringify(profile));
+    // We update the client profile, preserving their address even if the current order is "retirada".
+    // We don't want to wipe out their saved home address just because they decided to pick up in person once.
+    // If the fields passed from CheckoutView are empty string (because they haven't filled them),
+    // and we already have a saved profile, we might preserve the existing address for those fields,
+    // but typically CheckoutView passes its full state. Still, let's unconditionally save what was passed
+    // unless they chose 'retirada' and passed empty fields, in which case we merge with existing profile.
+    
+    setClientProfile((prevProfile) => {
+      const isRetirada = deliveryType === "retirada";
+      const newProfile: ClientProfile = {
+        telefone,
+        nome,
+        cep: (isRetirada && !cep && prevProfile?.cep) ? prevProfile.cep : cep,
+        rua: (isRetirada && !rua && prevProfile?.rua) ? prevProfile.rua : rua,
+        numero: (isRetirada && !numero && prevProfile?.numero) ? prevProfile.numero : numero,
+        bairro: (isRetirada && !bairro && prevProfile?.bairro) ? prevProfile.bairro : bairro,
+        referencia: (isRetirada && !referencia && prevProfile?.referencia) ? prevProfile.referencia : referencia,
+      };
+      
+      safeStorage.setItem("enki_cliente_sessao", JSON.stringify(newProfile));
 
-    // Auto save to local profiles ledger
-    let ledger: ClientProfile[] = [];
-    try {
-      const savedLedger = safeStorage.getItem("enki_local_perfis");
-      ledger = savedLedger ? JSON.parse(savedLedger) : [];
-    } catch {
-      ledger = [];
-    }
-    ledger = ledger.filter((p) => p.telefone !== telefone);
-    ledger.push(profile);
-    safeStorage.setItem("enki_local_perfis", JSON.stringify(ledger));
+      // Auto save to local profiles ledger
+      let ledger: ClientProfile[] = [];
+      try {
+        const savedLedger = safeStorage.getItem("enki_local_perfis");
+        ledger = savedLedger ? JSON.parse(savedLedger) : [];
+      } catch {
+        ledger = [];
+      }
+      ledger = ledger.filter((p) => p.telefone !== telefone);
+      ledger.push(newProfile);
+      safeStorage.setItem("enki_local_perfis", JSON.stringify(ledger));
+
+      return newProfile;
+    });
   };
 
   // Order triggers
@@ -1805,7 +1817,7 @@ PAGAMENTO: TESTE
             )}
 
             {/* View 2: Logistics / Checkout Form details */}
-            {view === "checkout" && (
+            <div className={view === "checkout" ? "block" : "hidden"}>
               <CheckoutView
                 carrinho={carrinho}
                 config={config}
@@ -1823,7 +1835,7 @@ PAGAMENTO: TESTE
                 onShowModal={(title, body, actions) => setGeneralModal({ title, body, actions })}
                 onCloseModal={() => setGeneralModal(null)}
               />
-            )}
+            </div>
 
             {/* View 3: Back-office portal admin options */}
             {view === "admin" && adminAuthenticated && (
