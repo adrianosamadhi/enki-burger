@@ -20,11 +20,118 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Order, Product, Addon, StoreConfig } from "../types";
 import { formatBRL, geocodeStoreAddress, getOptimizedImageUrl } from "../utils";
 import { DEFAULT_BUSINESS_HOURS } from "../data";
 
+const SortableProductItem: React.FC<{ p: Product; onSaveProduct: any; handleOpenProductModal: any; onDeleteProduct: any; showToast: any }> = ({ p, onSaveProduct, handleOpenProductModal, onDeleteProduct, showToast }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: p.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-white p-4 rounded-2xl border flex justify-between items-center text-left text-stone-900 transition-all duration-300 ${
+        isDragging ? "shadow-xl border-[#FF3D00] scale-[1.02] relative" : "shadow-sm"
+      }`}
+    >
+      <div className="flex items-center min-w-0 flex-1">
+        {/* Grip Handle */}
+        <div 
+          className="pr-3 mr-3 border-r border-stone-150 text-stone-400 hover:text-[#FF3D00] transition cursor-grab active:cursor-grabbing flex items-center justify-center shrink-0"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="w-5 h-5" />
+        </div>
+
+        <div className="truncate pr-2">
+          <p className="text-xs font-bold truncate text-stone-800 flex items-center gap-1.5">
+            {p.nome}
+            <span
+              className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border ${
+                p.isActive !== false
+                  ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                  : "bg-stone-100 text-stone-400"
+              }`}
+            >
+              {p.isActive !== false ? "Disponível" : "Pausado"}
+            </span>
+          </p>
+          <p className="text-[10px] text-[#FF3D00] font-bold mt-1.5 flex items-center gap-2 flex-wrap">
+            <span>{formatBRL(p.preco)}</span>
+            {p.precoOriginal && p.precoOriginal > p.preco && (
+              <span className="text-stone-400 text-[9px] line-through font-normal">
+                {formatBRL(p.precoOriginal)}
+              </span>
+            )}
+            <span className="text-[8px] uppercase tracking-wider text-stone-400 font-extrabold font-mono bg-stone-50 px-1.5 py-0.5 rounded border border-stone-150/40">
+              {p.categoria}
+            </span>
+          </p>
+        </div>
+      </div>
+      <div className="flex gap-2 shrink-0">
+        <button
+          onClick={() => {
+            const updated = { ...p, isActive: p.isActive === false ? true : false };
+            onSaveProduct(updated);
+            showToast(updated.isActive ? "Produto Reativado!" : "Produto Pausado temporariamente.", "success");
+          }}
+          className="bg-stone-50 hover:bg-stone-100 border p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-stone-600"
+        >
+          {p.isActive !== false ? "Pausar" : "Ativar"}
+        </button>
+        <button
+          onClick={() => handleOpenProductModal(p)}
+          className="bg-stone-50 hover:bg-stone-100 border p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-stone-600"
+        >
+          Editar
+        </button>
+        <button
+          onClick={() => {
+            onDeleteProduct(p.id);
+            showToast("Produto removido!", "success");
+          }}
+          className="bg-red-50 hover:bg-red-100 border border-red-100 p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-red-600"
+        >
+          Excluir
+        </button>
+      </div>
+    </div>
+  );
+}
 interface AdminPanelProps {
   config: StoreConfig;
   onSaveConfig: (updated: StoreConfig) => void;
@@ -572,34 +679,28 @@ export function AdminPanel({
     showToast("Configurações gravadas com sucesso!", "success");
   };
 
-  const handleMoveProduct = (index: number, direction: "up" | "down" | "left" | "right") => {
-    const list = [...produtos];
-    let targetIndex = index;
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-    if (direction === "left") {
-      targetIndex = index - 1;
-    } else if (direction === "right") {
-      targetIndex = index + 1;
-    } else if (direction === "up") {
-      targetIndex = index - 2;
-    } else if (direction === "down") {
-      targetIndex = index + 2;
+  const handleDragEnd = (event: any) => {
+    const {active, over} = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = produtos.findIndex((p) => p.id === active.id);
+      const newIndex = produtos.findIndex((p) => p.id === over.id);
+      
+      const list = arrayMove(produtos, oldIndex, newIndex);
+      const newOrder = list.map((p) => p.id);
+      
+      onSaveConfig({
+        ...config,
+        productOrder: newOrder,
+      });
     }
-    
-    if (targetIndex < 0 || targetIndex >= list.length) return;
-    
-    // Swap
-    const temp = list[index];
-    list[index] = list[targetIndex];
-    list[targetIndex] = temp;
-    
-    const newOrder = list.map((p) => p.id);
-    
-    onSaveConfig({
-      ...config,
-      productOrder: newOrder,
-    });
-    showToast("Ordem do cardápio atualizada!", "success");
   };
 
   const handleOpenProductModal = (p: Product | null) => {
@@ -927,137 +1028,29 @@ export function AdminPanel({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {produtos.map((p, idx) => (
-                  <div
-                    key={p.id}
-                    className="bg-white p-4 rounded-2xl border flex justify-between items-center text-left text-stone-900 shadow-sm transition-all duration-300"
-                  >
-                    <div className="flex items-center min-w-0 flex-1">
-                      {/* Controls for item arrangement */}
-                      <div className="grid grid-cols-3 gap-0.5 border-r border-stone-150 pr-3 mr-3 shrink-0 select-none">
-                        {/* Row 1 */}
-                        <div></div>
-                        <button
-                          type="button"
-                          disabled={idx - 2 < 0}
-                          onClick={() => handleMoveProduct(idx, "up")}
-                          className={`p-0.5 rounded transition flex items-center justify-center ${
-                            idx - 2 < 0
-                              ? "text-stone-200 cursor-not-allowed"
-                              : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
-                          }`}
-                          title="Subir uma linha (Vertical)"
-                        >
-                          <ChevronUp className="w-4 h-4" />
-                        </button>
-                        <div></div>
-
-                        {/* Row 2 */}
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => handleMoveProduct(idx, "left")}
-                          className={`p-0.5 rounded transition flex items-center justify-center ${
-                            idx === 0
-                              ? "text-stone-200 cursor-not-allowed"
-                              : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
-                          }`}
-                          title="Mover para esquerda"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <div className="flex items-center justify-center text-[10px] font-bold text-stone-500 font-mono min-w-[18px]">
-                          {idx + 1}
-                        </div>
-                        <button
-                          type="button"
-                          disabled={idx === produtos.length - 1}
-                          onClick={() => handleMoveProduct(idx, "right")}
-                          className={`p-0.5 rounded transition flex items-center justify-center ${
-                            idx === produtos.length - 1
-                              ? "text-stone-200 cursor-not-allowed"
-                              : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
-                          }`}
-                          title="Mover para direita"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-
-                        {/* Row 3 */}
-                        <div></div>
-                        <button
-                          type="button"
-                          disabled={idx + 2 >= produtos.length}
-                          onClick={() => handleMoveProduct(idx, "down")}
-                          className={`p-0.5 rounded transition flex items-center justify-center ${
-                            idx + 2 >= produtos.length
-                              ? "text-stone-200 cursor-not-allowed"
-                              : "text-stone-400 hover:bg-stone-50 hover:text-[#FF3D00] cursor-pointer"
-                          }`}
-                          title="Descer uma linha (Vertical)"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </button>
-                        <div></div>
-                      </div>
-
-                      <div className="truncate pr-2">
-                        <p className="text-xs font-bold truncate text-stone-800 flex items-center gap-1.5">
-                          {p.nome}
-                          <span
-                            className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border ${
-                              p.isActive !== false
-                                ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                : "bg-stone-100 text-stone-400"
-                            }`}
-                          >
-                            {p.isActive !== false ? "Disponível" : "Pausado"}
-                          </span>
-                        </p>
-                        <p className="text-[10px] text-[#FF3D00] font-bold mt-1.5 flex items-center gap-2 flex-wrap">
-                          <span>{formatBRL(p.preco)}</span>
-                          {p.precoOriginal && p.precoOriginal > p.preco && (
-                            <span className="text-stone-400 text-[9px] line-through font-normal">
-                              {formatBRL(p.precoOriginal)}
-                            </span>
-                          )}
-                          <span className="text-[8px] uppercase tracking-wider text-stone-400 font-extrabold font-mono bg-stone-50 px-1.5 py-0.5 rounded border border-stone-150/40">
-                            {p.categoria}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => {
-                          const updated = { ...p, isActive: p.isActive === false ? true : false };
-                          onSaveProduct(updated);
-                          showToast(updated.isActive ? "Produto Reativado!" : "Produto Pausado temporariamente.", "success");
-                        }}
-                        className="bg-stone-50 hover:bg-stone-100 border p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-stone-600"
-                      >
-                        {p.isActive !== false ? "Pausar" : "Ativar"}
-                      </button>
-                      <button
-                        onClick={() => handleOpenProductModal(p)}
-                        className="bg-stone-50 hover:bg-stone-100 border p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-stone-600"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => {
-                          onDeleteProduct(p.id);
-                          showToast("Produto removido!", "success");
-                        }}
-                        className="bg-red-50 hover:bg-red-100 border border-red-100 p-2 rounded-lg text-[10px] font-bold cursor-pointer transition text-red-600"
-                      >
-                        Excluir
-                      </button>
-                    </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={produtos.map(p => p.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {produtos.map((p) => (
+                      <SortableProductItem
+                        key={p.id}
+                        p={p}
+                        onSaveProduct={onSaveProduct}
+                        handleOpenProductModal={handleOpenProductModal}
+                        onDeleteProduct={onDeleteProduct}
+                        showToast={showToast}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
             </div>
           ) : (
             <div className="space-y-4">
