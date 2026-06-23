@@ -57,7 +57,7 @@ export function formatCEP(value: string): string {
 }
 
 // Centralized image optimization base URL (Prepare for Cloudflare Worker proxy if needed)
-export const SUPABASE_IMAGE_BASE_URL = "https://amylompetctxeaeyioig.supabase.co";
+export const SUPABASE_IMAGE_BASE_URL = "https://proxy-imagens-cardapio.adrianosamadhi.workers.dev";
 
 export function getOptimizedImageUrl(url?: string | null): string {
   if (!url || typeof url !== "string") return "";
