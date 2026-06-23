@@ -33,7 +33,7 @@ import { Toast } from "./components/Toast";
 
 import { Product, Addon, CartItem, StoreConfig, ClientProfile, Order } from "./types";
 import { DEFAULT_PRODUCTS, DEFAULT_ADDONS, DEFAULT_STORE_CONFIG } from "./data";
-import { safeStorage, calculateDynamicFreight, formatBRL, formatCEP, fetchAddressByCEP, getCartItemTotalPrice, getCartItemSinglePrice, isStoreOpen } from "./utils";
+import { safeStorage, calculateDynamicFreight, formatBRL, formatCEP, fetchAddressByCEP, getCartItemTotalPrice, getCartItemSinglePrice, isStoreOpen, getOptimizedImageUrl } from "./utils";
 
 const ADMIN_PASSWORD_HASH = "enki2026";
 
@@ -1977,7 +1977,8 @@ PAGAMENTO: TESTE
             {/* Header / Banner Image */}
             <div className="relative w-full h-36 sm:h-64 md:h-80 bg-stone-50 overflow-hidden flex items-center justify-center shrink-0 border-b border-stone-100">
               <img
-                src={activeProductDetail.img && activeProductDetail.img.trim() !== "" ? activeProductDetail.img : `https://placehold.co/600x400/f1f5f9/94a3b8?text=${encodeURIComponent(activeProductDetail.nome)}`}
+                loading="lazy"
+                src={activeProductDetail.img && activeProductDetail.img.trim() !== "" ? getOptimizedImageUrl(activeProductDetail.img) : `https://placehold.co/600x400/f1f5f9/94a3b8?text=${encodeURIComponent(activeProductDetail.nome)}`}
                 className="w-full h-full object-contain p-4 transition-transform duration-500 hover:scale-105"
                 alt={activeProductDetail.nome}
                 onError={(e) => {
@@ -2587,7 +2588,8 @@ PAGAMENTO: TESTE
                         {/* Left Info */}
                         <div className="flex gap-3">
                           <img
-                            src={item.img && item.img.trim() !== "" ? item.img : `https://placehold.co/100x100/f1f5f9/94a3b8?text=${encodeURIComponent(item.nome)}`}
+                            loading="lazy"
+                            src={item.img && item.img.trim() !== "" ? getOptimizedImageUrl(item.img) : `https://placehold.co/100x100/f1f5f9/94a3b8?text=${encodeURIComponent(item.nome)}`}
                             alt={item.nome}
                             className="w-12 h-12 rounded-xl object-contain border bg-white shrink-0 p-1"
                             onError={(e) => {

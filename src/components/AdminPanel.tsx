@@ -22,7 +22,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Order, Product, Addon, StoreConfig } from "../types";
-import { formatBRL, geocodeStoreAddress } from "../utils";
+import { formatBRL, geocodeStoreAddress, getOptimizedImageUrl } from "../utils";
 import { DEFAULT_BUSINESS_HOURS } from "../data";
 
 interface AdminPanelProps {
@@ -256,7 +256,7 @@ export function ProductModalForm({
           </div>
           {img && (
             <div className="relative w-16 h-16 rounded-xl overflow-hidden border bg-stone-50 group shadow-sm">
-              <img src={img} className="w-full h-full object-cover" alt="Preview" />
+              <img loading="lazy" src={getOptimizedImageUrl(img)} className="w-full h-full object-cover" alt="Preview" />
               <button
                 type="button"
                 onClick={() => setImg("")}
@@ -1219,7 +1219,7 @@ export function AdminPanel({
                 </div>
                 {cfgStoreLogoUrl && (
                   <div className="relative w-20 h-20 rounded-xl overflow-hidden border bg-stone-50 group shadow-sm flex items-center justify-center p-2">
-                    <img src={cfgStoreLogoUrl} className="max-w-full max-h-full object-contain" alt="Logo Preview" />
+                    <img loading="lazy" src={getOptimizedImageUrl(cfgStoreLogoUrl)} className="max-w-full max-h-full object-contain" alt="Logo Preview" />
                     <button
                       type="button"
                       onClick={() => setCfgStoreLogoUrl("")}

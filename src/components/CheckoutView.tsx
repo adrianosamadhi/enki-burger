@@ -272,6 +272,7 @@ export function CheckoutView({
             
             <div className="bg-stone-50 p-4 rounded-xl inline-block border border-stone-200/50">
               <img 
+                loading="lazy"
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pixKey)}`} 
                 className="w-36 h-36 mx-auto rounded-lg shadow-sm" 
                 alt="QR Code Pix"

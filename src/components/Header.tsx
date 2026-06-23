@@ -6,7 +6,7 @@
 import React from "react";
 import { User, CookingPot } from "lucide-react";
 import { StoreConfig, ClientProfile } from "../types";
-import { isStoreOpen } from "../utils";
+import { isStoreOpen, getOptimizedImageUrl } from "../utils";
 
 interface HeaderProps {
   config: StoreConfig;
@@ -25,13 +25,14 @@ export function Header({ config, clientProfile, onProfileClick, onLogoClick }: H
         <div className="flex items-center cursor-pointer select-none" onClick={onLogoClick} id="header-logo">
           {config.storeLogoUrl && config.storeLogoUrl.trim() !== "" ? (
             <img
-              src={config.storeLogoUrl.trim()}
+              loading="lazy"
+              src={getOptimizedImageUrl(config.storeLogoUrl.trim())}
               className="h-13 sm:h-[52px] md:h-[56px] w-auto object-contain transition-all"
               alt={config.storeName}
             />
           ) : config.storeName.toLowerCase().includes("enki") ? (
             <div className="flex items-center gap-2">
-              <img src="/icon_enki.png" className="h-[48px] sm:h-[55px] w-auto object-contain drop-shadow-sm" alt="Enki Burger Icon" />
+              <img loading="lazy" src="/icon_enki.png" className="h-[48px] sm:h-[55px] w-auto object-contain drop-shadow-sm" alt="Enki Burger Icon" />
               <h1 className="font-extrabold text-xl tracking-tight text-neutral-900 flex flex-col leading-none uppercase ml-1">
                 <span>{config.storeName}</span>
                 <span className="text-[10px] text-[#FF3D00] tracking-widest font-black mt-0.5">

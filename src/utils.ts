@@ -56,6 +56,27 @@ export function formatCEP(value: string): string {
   return clean;
 }
 
+// Centralized image optimization base URL (Prepare for Cloudflare Worker proxy if needed)
+export const SUPABASE_IMAGE_BASE_URL = "https://amylompetctxeaeyioig.supabase.co";
+
+export function getOptimizedImageUrl(url?: string | null): string {
+  if (!url || typeof url !== "string") return "";
+  
+  if (url.includes("placehold.co")) return url;
+  if (!url.startsWith("http")) return url;
+
+  try {
+    const originalHost = "https://amylompetctxeaeyioig.supabase.co";
+    if (url.startsWith(originalHost)) {
+      return url.replace(originalHost, SUPABASE_IMAGE_BASE_URL);
+    }
+  } catch (e) {
+    // Return original url if any error parsing
+  }
+  
+  return url;
+}
+
 // ViaCEP helper to fetch street information from a postal code
 export async function fetchAddressByCEP(cep: string): Promise<{
   rua: string;

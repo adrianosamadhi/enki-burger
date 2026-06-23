@@ -5,7 +5,7 @@
 
 import React from "react";
 import { Product } from "../types";
-import { formatBRL } from "../utils";
+import { formatBRL, getOptimizedImageUrl } from "../utils";
 
 interface ProductCardProps {
   key?: string;
@@ -49,7 +49,8 @@ export function ProductCard({
       >
         <div className="relative overflow-hidden w-full h-40 sm:h-48 md:h-52 bg-stone-100 flex items-center justify-center shrink-0">
           <img
-            src={product.img && product.img.trim() !== "" ? product.img : `https://placehold.co/300x200/f1f5f9/94a3b8?text=${encodeURIComponent(product.nome)}`}
+            loading="lazy"
+            src={product.img && product.img.trim() !== "" ? getOptimizedImageUrl(product.img) : `https://placehold.co/300x200/f1f5f9/94a3b8?text=${encodeURIComponent(product.nome)}`}
             className={`w-full h-full object-cover transition-transform duration-500 ${!isPaused && "group-hover:scale-110"}`}
             alt={product.nome}
             onError={(e) => {
@@ -139,7 +140,8 @@ export function ProductCard({
     >
       <div className="relative shrink-0 overflow-hidden rounded-2xl w-24 h-24">
         <img
-          src={product.img && product.img.trim() !== "" ? product.img : `https://placehold.co/150x150/f1f5f9/94a3b8?text=${encodeURIComponent(product.nome)}`}
+          loading="lazy"
+          src={product.img && product.img.trim() !== "" ? getOptimizedImageUrl(product.img) : `https://placehold.co/150x150/f1f5f9/94a3b8?text=${encodeURIComponent(product.nome)}`}
           className="w-full h-full object-cover"
           alt={product.nome}
           onError={(e) => {

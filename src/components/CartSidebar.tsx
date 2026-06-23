@@ -48,7 +48,7 @@ export function CartSidebar({
 
       {count === 0 ? (
         <div className="text-center py-8 space-y-4">
-          <img src="/icon_enki.png" alt="Enki Burger Icon" className="w-24 h-24 mx-auto object-contain opacity-80 mix-blend-multiply" />
+          <img loading="lazy" src="/icon_enki.png" alt="Enki Burger Icon" className="w-24 h-24 mx-auto object-contain opacity-80 mix-blend-multiply" />
           <p className="text-xs text-stone-400 font-bold uppercase tracking-wider">
             Adicione hambúrgueres para iniciar.
           </p>
