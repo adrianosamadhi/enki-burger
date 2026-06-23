@@ -200,20 +200,50 @@ export default function App() {
     const orderId = dbItem.gateway_id || `PED-${dbItem.id || Math.floor(1000 + Math.random() * 9000)}`;
     const dataHora = dbItem.created_at ? new Date(dbItem.created_at).toLocaleString("pt-BR") : new Date().toLocaleString("pt-BR");
     
-    const receipt = `<pre>
-----------------------------------------
-             ${config.storeName.toUpperCase()}
-----------------------------------------
-PEDIDO: ${orderId}
-DATA: ${dataHora}
-CLIENTE: ${(dbItem.nome || "Não informado").toUpperCase()}
-TEL: ${dbItem.telefone || "Não informado"}
-ENDEREÇO: ${(dbItem.endereco || "RETIRADA NO BALCÃO").toUpperCase()}
-----------------------------------------
-${dbItem.pedido_detalhes || ""}
-----------------------------------------
-TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
-----------------------------------------</pre>`;
+    const isDelivery = dbItem.endereco && dbItem.endereco.toUpperCase() !== "RETIRADA NO BALCÃO" && dbItem.endereco.toUpperCase() !== "RETIRADA SECUNDÁRIA";
+    const deliveryTypeText = isDelivery ? "DELIVERY" : "RETIRADA";
+
+    const receipt = `
+      <div class="receipt-container">
+        <div class="header">${config.storeName.toUpperCase()}</div>
+        <div class="delivery-type-container">
+          <div class="delivery-type">${deliveryTypeText}</div>
+        </div>
+        
+        <div class="order-id">${orderId}</div>
+        <div class="client-name">${(dbItem.nome || "Não informado").toUpperCase()}</div>
+        
+        <div class="text-sm">DATA: ${dataHora}</div>
+        <div class="text-sm">TEL: ${dbItem.telefone || "Não informado"}</div>
+        ${isDelivery ? `<div class="text-sm">ENDEREÇO: ${dbItem.endereco.toUpperCase()}</div>` : ""}
+        
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th colspan="3" style="text-align: left;">Itens</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="3" style="white-space: pre-wrap; padding-top: 10px; font-family: inherit;">${dbItem.pedido_detalhes || ""}</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div class="totals">
+          <div style="display: flex; justify-content: space-between;">
+            <span>TOTAL:</span>
+            <span>${formatBRL(Number(dbItem.total_pedido || 0))}</span>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <div>PEDIDO: ${orderId}</div>
+          <div>${dataHora}</div>
+          <div class="thanks">OBRIGADO!</div>
+        </div>
+      </div>
+    `;
     printReceipt(receipt);
   };
 
@@ -1413,43 +1443,145 @@ TOTAL: ${formatBRL(Number(dbItem.total_pedido || 0))}
   const printReceiptOutput = (orderId: string) => {
     const o = ordersHistory.find((item) => item.id === orderId);
     if (!o) return;
-    const itemsText = o.resumoItensString;
+    
+    const isDelivery = o.rua && o.rua !== "Retirada Secundária" && o.rua !== "Retirada no Balcão";
+    const deliveryTypeText = isDelivery ? "DELIVERY" : "RETIRADA";
 
-    const receipt = `<pre>
-========================================
-       ${config.storeName.toUpperCase()}
-========================================
-PEDIDO: ${o.id}
-DATA: ${o.dataHora}
-CLIENTE: ${o.nome.toUpperCase()}
-========================================
-${itemsText}
-========================================
-TOTAL: ${formatBRL(o.total)}
-PAGAMENTO: ${o.pagamento.toUpperCase()}
-========================================</pre>`;
+    let itemsHtml = "";
+    if (o.detalhesEstruturados && o.detalhesEstruturados.length > 0) {
+      itemsHtml = o.detalhesEstruturados.map(item => {
+        let addonHtml = "";
+        if (item.adicionais && item.adicionais.length > 0) {
+          addonHtml = item.adicionais.map(a => `
+            <tr>
+              <td class="col-qtd"></td>
+              <td class="col-item text-sm">+${a.qtd}x ${a.nome}</td>
+              <td class="col-price text-sm">${formatBRL(a.preco)}</td>
+            </tr>
+          `).join("");
+        }
+        const obsHtml = item.observacoes ? `
+            <tr>
+              <td class="col-qtd"></td>
+              <td class="col-item text-sm"><i>Obs: ${item.observacoes}</i></td>
+              <td class="col-price"></td>
+            </tr>
+        ` : "";
+        
+        return `
+          <tr>
+            <td class="col-qtd">${item.qtd}x</td>
+            <td class="col-item">${item.nome}</td>
+            <td class="col-price">${formatBRL(item.preco)}</td>
+          </tr>
+          ${addonHtml}
+          ${obsHtml}
+        `;
+      }).join("");
+    } else {
+      itemsHtml = `<tr><td colspan="3" style="white-space: pre-wrap; font-family: inherit;">${o.resumoItensString}</td></tr>`;
+    }
+
+    const receipt = `
+      <div class="receipt-container">
+        <div class="header">${config.storeName.toUpperCase()}</div>
+        <div class="delivery-type-container">
+          <div class="delivery-type">${deliveryTypeText}</div>
+        </div>
+        
+        <div class="order-id">${o.id}</div>
+        <div class="client-name">${o.nome.toUpperCase()}</div>
+        
+        <div class="text-sm">DATA: ${o.dataHora}</div>
+        <div class="text-sm">TEL: ${o.telefone || "Não informado"}</div>
+        ${isDelivery ? `<div class="text-sm">ENDEREÇO: ${o.rua}, ${o.numero} - ${o.bairro}</div>` : ""}
+        
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th class="col-qtd">Qtd</th>
+              <th class="col-item">Itens</th>
+              <th class="col-price">Preço</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+        
+        <div class="totals">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <span style="font-size: 12pt; font-weight: normal;">Subtotal:</span>
+            <span style="font-size: 12pt; font-weight: normal;">${formatBRL(o.subtotal)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span style="font-size: 12pt; font-weight: normal;">Frete:</span>
+            <span style="font-size: 12pt; font-weight: normal;">${formatBRL(o.frete)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-top: 1px dashed #000; padding-top: 10px;">
+            <span>TOTAL:</span>
+            <span>${formatBRL(o.total)}</span>
+          </div>
+        </div>
+        
+        <div class="text-sm" style="margin-top: 10px;"><b>PAGAMENTO:</b> ${o.pagamento.toUpperCase()}</div>
+        
+        <div class="footer">
+          <div>PEDIDO: ${o.id}</div>
+          <div>${o.dataHora}</div>
+          <div class="thanks">OBRIGADO!</div>
+        </div>
+      </div>
+    `;
     printReceipt(receipt);
   };
 
   const printTestOutput = () => {
-    const receipt = `<pre>
-========================================
-       ${config.storeName.toUpperCase()}
-========================================
-          TESTE DE IMPRESSÃO
-========================================
-DATA: ${new Date().toLocaleString('pt-BR')}
-CLIENTE: SISTEMA CARDÁPIO
-========================================
-1x Teste de Impressão Térmica
-   - Detalhes visíveis
-   - Texto legível e bem ajustado
-========================================
-TOTAL: R$ 0,00
-PAGAMENTO: TESTE
-========================================
-     VERIFIQUE ALINHAMENTO E TAMANHO
-========================================</pre>`;
+    const receipt = `
+      <div class="receipt-container">
+        <div class="header">${config.storeName.toUpperCase()}</div>
+        <div class="delivery-type-container">
+          <div class="delivery-type">TESTE</div>
+        </div>
+        
+        <div class="order-id">PED-0000</div>
+        <div class="client-name">SISTEMA CARDÁPIO</div>
+        
+        <div class="text-sm">DATA: ${new Date().toLocaleString('pt-BR')}</div>
+        
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th class="col-qtd">Qtd</th>
+              <th class="col-item">Itens</th>
+              <th class="col-price">Preço</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-qtd">1x</td>
+              <td class="col-item">Teste de Impressão Térmica<br><i class="text-sm">Detalhes visíveis e legíveis</i></td>
+              <td class="col-price">R$ 0,00</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div class="totals">
+          <div style="display: flex; justify-content: space-between;">
+            <span>TOTAL:</span>
+            <span>R$ 0,00</span>
+          </div>
+        </div>
+        
+        <div class="text-sm" style="margin-top: 10px;"><b>PAGAMENTO:</b> TESTE</div>
+        
+        <div class="footer">
+          <div>PEDIDO: PED-0000</div>
+          <div>${new Date().toLocaleString('pt-BR')}</div>
+          <div class="thanks">VERIFIQUE O TAMANHO!</div>
+        </div>
+      </div>
+    `;
     printReceipt(receipt);
   };
 
