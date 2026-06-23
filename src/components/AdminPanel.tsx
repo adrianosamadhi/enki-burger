@@ -37,6 +37,7 @@ interface AdminPanelProps {
   onSaveAddon: (a: Addon) => void;
   onDeleteAddon: (id: string) => void;
   supabaseStatus: "disconnected" | "connected" | "error";
+  supabaseClient?: any;
   onLogout: () => void;
   onPrintOrder: (orderId: string) => void;
   onPrintTest?: () => void;
@@ -56,6 +57,7 @@ interface ProductModalFormProps {
   onSave: (updatedProduct: Product) => void;
   onClose: () => void;
   showToast: (msg: string, type: "success" | "error") => void;
+  supabaseClient?: any;
 }
 
 export function ProductModalForm({
@@ -65,6 +67,7 @@ export function ProductModalForm({
   onSave,
   onClose,
   showToast,
+  supabaseClient,
 }: ProductModalFormProps) {
   const [name, setName] = useState(product ? product.nome : "");
   const [price, setPrice] = useState(product ? product.preco : 0);
@@ -86,18 +89,45 @@ export function ProductModalForm({
     product && product.adicionaisPermitidos ? product.adicionaisPermitidos : []
   );
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
         showToast("A imagem deve ter no máximo 2MB.", "error");
         return;
       }
+      
+      if (supabaseClient) {
+        try {
+          showToast("Fazendo upload da imagem...", "success");
+          const extension = file.name.split('.').pop() || "jpg";
+          const fileName = `product_${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
+          
+          const { data, error } = await supabaseClient.storage
+            .from("cardapio")
+            .upload(fileName, file, { upsert: true });
+            
+          if (error) throw error;
+          
+          const { data: urlData } = supabaseClient.storage
+            .from("cardapio")
+            .getPublicUrl(fileName);
+            
+          setImg(urlData.publicUrl);
+          showToast("Imagem hospedada na nuvem com sucesso!", "success");
+          return;
+        } catch (err: any) {
+          console.error("Erro no upload para storage: ", err);
+          showToast("Falha ao salvar no Supabase Storage. Usando modo backup.", "error");
+        }
+      }
+
+      // Fallback base64
       const reader = new FileReader();
       reader.onload = (ev) => {
         const base64 = ev.target?.result as string;
         setImg(base64);
-        showToast("Imagem carregada com sucesso!", "success");
+        showToast("Imagem carregada. (Fallback sem nuvem)", "success");
       };
       reader.readAsDataURL(file);
     }
@@ -356,6 +386,7 @@ export function AdminPanel({
   onSaveAddon,
   onDeleteAddon,
   supabaseStatus,
+  supabaseClient,
   onLogout,
   onPrintOrder,
   onPrintTest,
@@ -422,18 +453,44 @@ export function AdminPanel({
   const totalRevenue = filteredOrders.reduce((acc, o) => acc + o.total, 0);
   const avgTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
         showToast("O logotipo deve ter no máximo 2MB.", "error");
         return;
       }
+
+      if (supabaseClient) {
+        try {
+          showToast("Enviando logotipo para a nuvem...", "success");
+          const extension = file.name.split('.').pop() || "png";
+          const fileName = `logo_${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
+          
+          const { error } = await supabaseClient.storage
+            .from("cardapio")
+            .upload(fileName, file, { upsert: true });
+            
+          if (error) throw error;
+          
+          const { data: urlData } = supabaseClient.storage
+            .from("cardapio")
+            .getPublicUrl(fileName);
+            
+          setCfgStoreLogoUrl(urlData.publicUrl);
+          showToast("Logotipo hospedado na nuvem!", "success");
+          return;
+        } catch (err: any) {
+          console.error("Erro no upload do logotipo: ", err);
+          showToast("Falha no cloud upload, inserindo em Base64...", "error");
+        }
+      }
+
       const reader = new FileReader();
       reader.onload = (ev) => {
         const base64 = ev.target?.result as string;
         setCfgStoreLogoUrl(base64);
-        showToast("Logotipo carregado com sucesso!", "success");
+        showToast("Logotipo carregado localmente!", "success");
       };
       reader.readAsDataURL(file);
     }
@@ -552,6 +609,7 @@ export function AdminPanel({
         product={p}
         adicionais={adicionais}
         existingCategories={categories}
+        supabaseClient={supabaseClient}
         onSave={(updatedProduct) => {
           onSaveProduct(updatedProduct);
           onCloseModal();

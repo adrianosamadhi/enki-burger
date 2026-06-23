@@ -1851,6 +1851,7 @@ PAGAMENTO: TESTE
                 onSaveAddon={handleSaveAddon}
                 onDeleteAddon={handleDeleteAddon}
                 supabaseStatus={supabaseStatus}
+                supabaseClient={supabaseClient}
                 onLogout={() => {
                   setAdminAuthenticated(false);
                   setView("menu");
