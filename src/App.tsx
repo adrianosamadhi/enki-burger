@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { printReceipt } from "./printReceipt";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -136,12 +136,23 @@ export default function App() {
     return safeStorage.getItem("enki_sound_alert") !== "false";
   });
 
+  const audioRef = useRef<any>(null);
+
   const playNotificationSound = () => {
     try {
+      if (audioRef.current && audioRef.current.pause) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       
-      const playDoubleRing = (offset: number) => {
-        const now = audioCtx.currentTime + offset;
+      let intervalId: any;
+      let isPlaying = true;
+
+      const playDoubleRing = () => {
+        if (!isPlaying || audioCtx.state !== 'running') return;
+        const now = audioCtx.currentTime;
 
         // Custom function to create a modulated tone representing a high-pitched phone ringer ring
         const createRingOscillator = (freq: number, start: number, end: number) => {
@@ -187,16 +198,31 @@ export default function App() {
         createRingOscillator(685, now + 0.9, now + 1.6);
       };
 
-      // Sound the double-ring sequence 4 times, spaced by 3 seconds (approx 12 seconds total incoming ring alarm)
-      for (let i = 0; i < 4; i++) {
-        playDoubleRing(i * 3.0);
-      }
+      playDoubleRing();
+      intervalId = setInterval(playDoubleRing, 3000);
+
+      audioRef.current = {
+        loop: true,
+        currentTime: 0,
+        pause: () => {
+          isPlaying = false;
+          clearInterval(intervalId);
+          if (audioCtx.state === 'running') {
+            audioCtx.close().catch(() => {});
+          }
+        }
+      };
     } catch (e) {
       console.warn("Audio Context blocked or unsupported:", e);
     }
   };
 
   const printDirectDbOrder = (dbItem: any) => {
+    if (audioRef.current && audioRef.current.pause) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
     const orderId = dbItem.gateway_id || `PED-${dbItem.id || Math.floor(1000 + Math.random() * 9000)}`;
     const dataHora = dbItem.created_at ? new Date(dbItem.created_at).toLocaleString("pt-BR") : new Date().toLocaleString("pt-BR");
     
@@ -1441,6 +1467,11 @@ export default function App() {
   };
 
   const printReceiptOutput = (orderId: string) => {
+    if (audioRef.current && audioRef.current.pause) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
     const o = ordersHistory.find((item) => item.id === orderId);
     if (!o) return;
     
@@ -1537,6 +1568,11 @@ export default function App() {
   };
 
   const printTestOutput = () => {
+    if (audioRef.current && audioRef.current.pause) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
     const receipt = `
       <div class="receipt-container">
         <div class="header">${config.storeName.toUpperCase()}</div>
