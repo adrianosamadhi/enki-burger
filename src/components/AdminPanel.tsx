@@ -556,6 +556,18 @@ export function AdminPanel({
     });
   }, [ordersHistory, metricsPeriod]);
 
+  const pedidosDeHojeParaLista = React.useMemo(() => {
+    const today = new Date();
+    return ordersHistory.filter(o => {
+      const orderDate = parseDateBR(o.dataHora);
+      return (
+        orderDate.getDate() === today.getDate() &&
+        orderDate.getMonth() === today.getMonth() &&
+        orderDate.getFullYear() === today.getFullYear()
+      );
+    });
+  }, [ordersHistory]);
+
   const totalOrders = filteredOrders.length;
   const totalRevenue = filteredOrders.reduce((acc, o) => acc + o.total, 0);
   const avgTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -930,17 +942,17 @@ export function AdminPanel({
           </div>
 
           <p className="text-xs text-stone-400 text-left">
-            * Se a aba estiver aberta e conectada à nuvem, os pedidos serão listados de forma síncrona.
+            * Se a aba estiver aberta e conectada à nuvem, os pedidos serão listados de forma síncrona. Serão listados apenas os pedidos recebidos na data de hoje.
           </p>
-          {ordersHistory.length === 0 ? (
+          {pedidosDeHojeParaLista.length === 0 ? (
             <div className="text-center py-16 bg-white border border-stone-100 rounded-[2rem]">
               <p className="text-xs text-stone-400 font-bold uppercase tracking-wider">
-                Nenhum pedido recente.
+                Nenhum pedido hoje.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ordersHistory.map((o) => (
+              {pedidosDeHojeParaLista.map((o) => (
                 <div
                   key={o.id}
                   className="bg-white p-5 rounded-3xl border text-left space-y-3 text-stone-900 shadow-sm"
