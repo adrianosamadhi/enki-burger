@@ -142,7 +142,7 @@ export default function App() {
   useEffect(() => {
     // Inicializa o objeto de áudio nativo do HTML5
     // Usando um som de telefone/campainha disponível publicamente do Google
-    audioRef.current = new Audio("https://actions.google.com/sounds/v1/alarms/phone_ring.ogg");
+    audioRef.current = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
     audioRef.current.loop = true;
   }, []);
 
@@ -2039,14 +2039,14 @@ export default function App() {
                   setSoundAlertActive(val);
                   safeStorage.setItem("enki_sound_alert", val ? "true" : "false");
                   if (val && audioRef.current) {
+                    setAudioUnlocked(true);
                     audioRef.current.play().then(() => {
                       if (audioRef.current) {
                         audioRef.current.pause();
                         audioRef.current.currentTime = 0;
-                        setAudioUnlocked(true);
                       }
                     }).catch(e => {
-                      console.error(e);
+                      console.error("Audio unlock play prevented:", e);
                     });
                   }
                   showToast(val ? "Sinal sonoro ativo (destravado)!" : "Sinal sonoro desativado.", "success");
