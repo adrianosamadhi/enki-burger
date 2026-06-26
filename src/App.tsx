@@ -103,16 +103,7 @@ export default function App() {
     return [];
   });
 
-  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(() => {
-    try {
-      const saved = safeStorage.getItem("cardapio_produtos");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.length > 0) return false;
-      }
-    } catch {}
-    return true;
-  });
+  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(true);
 
   const [adicionais, setAdicionais] = useState<Addon[]>(() => {
     try {
@@ -420,10 +411,12 @@ export default function App() {
         fetchRemoteData(client);
       } catch (err) {
         setSupabaseStatus("error");
+        setIsLoadingMenu(false);
       }
     } else {
       setSupabaseClient(null);
       setSupabaseStatus("disconnected");
+      setIsLoadingMenu(false);
     }
   }, []);
 
@@ -1779,7 +1772,7 @@ export default function App() {
                       Os mais pedidos
                     </h2>
                     <div className="flex overflow-x-auto gap-4 pb-4 snap-x hide-scrollbar px-1">
-                      {isLoadingMenu && sortedProdutos.length === 0 ? (
+                      {isLoadingMenu ? (
                         Array.from({ length: 3 }).map((_, idx) => (
                           <div key={idx} className="min-w-[220px] max-w-[240px] snap-start flex-shrink-0 flex self-stretch">
                             <div className="bg-white border rounded-[2rem] p-4 w-full shadow-sm animate-pulse flex flex-col min-h-[300px]">
@@ -1887,7 +1880,7 @@ export default function App() {
                       : "space-y-4"
                   }`}
                 >
-                  {isLoadingMenu && sortedProdutos.length === 0 ? (
+                  {isLoadingMenu ? (
                     Array.from({ length: 6 }).map((_, idx) => (
                       <div key={idx} className={`bg-white border text-left p-4 w-full shadow-sm relative overflow-hidden transition-all duration-300 animate-pulse ${
                           layoutMode === "grid" ? "rounded-[2rem] flex flex-col min-h-[300px]" : "rounded-3xl flex flex-row h-[140px] gap-4"
