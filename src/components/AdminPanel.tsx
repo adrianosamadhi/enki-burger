@@ -927,7 +927,7 @@ export function AdminPanel({
                     : "bg-white text-stone-500 border-stone-200 hover:border-stone-300"
                 }`}
               >
-                <span>{audioUnlocked ? "🔔 Áudio Destravado" : "🔕 Clique para Habilitar Som"}</span>
+                <span>{audioUnlocked ? "🔔 Som Habilitado" : "🔕 Clique para Habilitar Som"}</span>
               </button>
               <button
                 type="button"
