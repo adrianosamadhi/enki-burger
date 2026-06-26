@@ -137,6 +137,7 @@ export default function App() {
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   useEffect(() => {
     // Inicializa o objeto de áudio nativo do HTML5
@@ -820,6 +821,40 @@ export default function App() {
       } catch (err) {
         console.error(err);
       }
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    // 1. Atualiza estado local imediatamente (filtra o pedido)
+    setOrdersHistory(prev => prev.filter(o => o.id !== orderId));
+    
+    // 2. Remove do localStorage
+    const saved = safeStorage.getItem("orders_history");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const updated = parsed.filter((o: any) => o.id !== orderId);
+        safeStorage.setItem("orders_history", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Erro ao atualizar localStorage", e);
+      }
+    }
+
+    // 3. Remove do banco de dados remotamente, se conectado
+    if (supabaseClient) {
+      try {
+        const { error } = await supabaseClient.from("clientes_pedidos").delete().eq("id", orderId);
+        if (error) {
+          console.error("Erro ao deletar pedido no Supabase:", error);
+          showToast("Pedido excluído localmente, mas erro na nuvem.", "error");
+        } else {
+          showToast("Pedido cancelado e excluído com sucesso.", "success");
+        }
+      } catch (err) {
+        console.error("Erro exceção ao deletar pedido:", err);
+      }
+    } else {
+      showToast("Pedido excluído offline.", "success");
     }
   };
 
@@ -1987,6 +2022,7 @@ export default function App() {
                   showToast("Sessão administrativa encerrada.", "success");
                 }}
                 onPrintOrder={printReceiptOutput}
+                onDeleteOrder={handleDeleteOrder}
                 onPrintTest={printTestOutput}
                 showToast={showToast}
                 onShowModal={(title, body, actions) => setGeneralModal({ title, body, actions })}
@@ -1998,10 +2034,22 @@ export default function App() {
                   showToast(val ? "A auto-impressão de pedidos está ativa!" : "Auto-impressão desligada.", "success");
                 }}
                 soundAlertActive={soundAlertActive}
+                audioUnlocked={audioUnlocked}
                 setSoundAlertActive={(val) => {
                   setSoundAlertActive(val);
                   safeStorage.setItem("enki_sound_alert", val ? "true" : "false");
-                  showToast(val ? "Sinal sonoro de novos pedidos ativo!" : "Sinal sonoro desativado.", "success");
+                  if (val && audioRef.current) {
+                    audioRef.current.play().then(() => {
+                      if (audioRef.current) {
+                        audioRef.current.pause();
+                        audioRef.current.currentTime = 0;
+                        setAudioUnlocked(true);
+                      }
+                    }).catch(e => {
+                      console.error(e);
+                    });
+                  }
+                  showToast(val ? "Sinal sonoro ativo (destravado)!" : "Sinal sonoro desativado.", "success");
                 }}
               />
             )}

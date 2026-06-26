@@ -156,6 +156,8 @@ interface AdminPanelProps {
   setAutoPrintActive?: (val: boolean) => void;
   soundAlertActive?: boolean;
   setSoundAlertActive?: (val: boolean) => void;
+  audioUnlocked?: boolean;
+  onDeleteOrder?: (id: string) => void;
 }
 
 interface ProductModalFormProps {
@@ -505,6 +507,8 @@ export function AdminPanel({
   setAutoPrintActive,
   soundAlertActive = true,
   setSoundAlertActive,
+  audioUnlocked = false,
+  onDeleteOrder,
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<"pedidos" | "produtos" | "metricas" | "config">("pedidos");
   const [productSubTab, setProductSubTab] = useState<"items" | "addons">("items");
@@ -916,14 +920,14 @@ export function AdminPanel({
             <div className="flex gap-2 w-full sm:w-auto">
               <button
                 type="button"
-                onClick={() => setSoundAlertActive?.(!soundAlertActive)}
+                onClick={() => setSoundAlertActive?.(true)}
                 className={`flex-1 sm:flex-none px-4 py-3 rounded-2xl text-xs font-black border transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
-                  soundAlertActive
-                    ? "bg-stone-900 text-white border-stone-900"
+                  audioUnlocked
+                    ? "bg-green-600 text-white border-green-600"
                     : "bg-white text-stone-500 border-stone-200 hover:border-stone-300"
                 }`}
               >
-                <span>{soundAlertActive ? "🔔 Som Ligado" : "🔕 Som Mudo"}</span>
+                <span>{audioUnlocked ? "🔔 Áudio Destravado" : "🔕 Clique para Habilitar Som"}</span>
               </button>
               <button
                 type="button"
@@ -990,15 +994,28 @@ export function AdminPanel({
                       {o.gatewayStatus === "Aprovado" ? "Pago Online" : "Aguardando"}
                     </span>
                   </div>
-                  <button
-                    onClick={() => {
-                      onPrintOrder(o.id);
-                      showToast(`Cupom ${o.id} enviado para impressão!`, "success");
-                    }}
-                    className="w-full bg-neutral-900 hover:bg-neutral-800 text-white py-3 rounded-2xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-[#FF3D00]" /> Imprimir Cupom Térmico (80mm)
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Tem certeza que deseja excluir o pedido ${o.id}? Esta ação não pode ser desfeita.`)) {
+                          onDeleteOrder?.(o.id);
+                        }
+                      }}
+                      className="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-3 rounded-2xl text-xs font-black transition flex items-center justify-center cursor-pointer shadow-sm border border-red-100"
+                      title="Excluir pedido cancelado"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        onPrintOrder(o.id);
+                        showToast(`Cupom ${o.id} enviado para impressão!`, "success");
+                      }}
+                      className="flex-1 bg-neutral-900 hover:bg-neutral-800 text-white py-3 rounded-2xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-[#FF3D00]" /> Imprimir Cupom Térmico (80mm)
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
