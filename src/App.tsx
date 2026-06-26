@@ -523,10 +523,23 @@ export default function App() {
   }, [supabaseClient, adminAuthenticated]);
 
   const fetchRemoteData = async (client: any) => {
+    // Helper para evitar crash no JSON.parse e suportar tanto array quanto string
+    const safeParseJSON = (val: any, fallback: any) => {
+      if (!val) return fallback;
+      if (typeof val !== "string") return val;
+      try {
+        return JSON.parse(val);
+      } catch (e) {
+        return fallback;
+      }
+    };
+
     // 1. Process config
     client.from("loja_config").select("*").eq("id", 1).maybeSingle()
       .then(({ data: configData, error: configErr }: any) => {
         if (configData && !configErr) {
+          const rawProductOrder = configData.product_order || configData.productOrder || configData.productorder;
+          
           const mappedConfig: StoreConfig = {
             whatsapp: configData.whatsapp || config.whatsapp,
             supabaseUrl: configData.supabase_url || config.supabaseUrl || "",
@@ -541,12 +554,8 @@ export default function App() {
             storeAddress: configData.store_address || config.storeAddress,
             storeLat: configData.store_lat || config.storeLat,
             storeLon: configData.store_lon || config.storeLon,
-            businessHours: configData.business_hours
-              ? (typeof configData.business_hours === "string" ? JSON.parse(configData.business_hours) : configData.business_hours)
-              : (config.businessHours || DEFAULT_STORE_CONFIG.businessHours),
-            productOrder: configData.product_order
-              ? (typeof configData.product_order === "string" ? JSON.parse(configData.product_order) : configData.product_order)
-              : (config.productOrder || []),
+            businessHours: safeParseJSON(configData.business_hours, config.businessHours || DEFAULT_STORE_CONFIG.businessHours),
+            productOrder: safeParseJSON(rawProductOrder, config.productOrder || []),
             notificationWebhook: configData.notification_webhook !== undefined 
               ? configData.notification_webhook 
               : (config.notificationWebhook || ""),
@@ -1654,17 +1663,26 @@ export default function App() {
 
   // Sorted products based on custom arrangement or deterministic id
   const sortedProdutos = React.useMemo(() => {
-    const orderList = config.productOrder || [];
-    if (orderList.length === 0) {
-      return [...produtos].sort((a, b) => a.id.localeCompare(b.id));
-    }
+    const rawOrderList = config.productOrder || [];
+    const orderList = Array.isArray(rawOrderList) ? rawOrderList : [];
+    
     return [...produtos].sort((a, b) => {
-      const idxA = orderList.indexOf(a.id);
-      const idxB = orderList.indexOf(b.id);
+      // Comparação rigorosa ignorando tipo (string/number) ou espaços vazios
+      const idA = String(a.id).trim();
+      const idB = String(b.id).trim();
+      const idxA = orderList.findIndex(id => String(id).trim() === idA);
+      const idxB = orderList.findIndex(id => String(id).trim() === idB);
+      
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
       if (idxA !== -1) return -1;
       if (idxB !== -1) return 1;
-      return a.id.localeCompare(b.id);
+      
+      // Fallback seguro caso a lista de ordenação falhe ou seja incompleta:
+      // Garante agrupamento por categoria e ordem alfabética.
+      if (a.categoria === b.categoria) {
+         return String(a.nome).localeCompare(String(b.nome));
+      }
+      return String(a.categoria || "").localeCompare(String(b.categoria || ""));
     });
   }, [produtos, config.productOrder]);
 
