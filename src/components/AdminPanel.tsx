@@ -27,6 +27,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -69,7 +70,7 @@ const SortableProductItem: React.FC<{ p: Product; onSaveProduct: any; handleOpen
       <div className="flex items-center min-w-0 flex-1">
         {/* Grip Handle */}
         <div 
-          className="pr-3 mr-3 border-r border-stone-150 text-stone-400 hover:text-[#FF3D00] transition cursor-grab active:cursor-grabbing flex items-center justify-center shrink-0"
+          className="pr-3 mr-3 border-r border-stone-150 text-stone-400 hover:text-[#FF3D00] transition cursor-grab active:cursor-grabbing flex items-center justify-center shrink-0 touch-none"
           {...attributes}
           {...listeners}
         >
@@ -693,6 +694,12 @@ export function AdminPanel({
 
   const sensors = useSensors(
     useSensor(PointerSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
