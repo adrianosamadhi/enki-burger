@@ -49,6 +49,15 @@ export default function App() {
     const saved = safeStorage.getItem("cardapio_config");
     let parsed = saved ? JSON.parse(saved) : { ...DEFAULT_STORE_CONFIG };
     
+    // Ensure productOrder is parsed if it was saved as a string by a legacy version
+    if (parsed.productOrder && typeof parsed.productOrder === "string") {
+      try {
+        parsed.productOrder = JSON.parse(parsed.productOrder);
+      } catch (e) {
+        parsed.productOrder = [];
+      }
+    }
+    
     // Auto-migrate/heal supabase config
     let updatedConfig = false;
     if (!parsed.supabaseUrl || parsed.supabaseUrl === "") {
@@ -146,12 +155,18 @@ export default function App() {
       }
 
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
       
       let intervalId: any;
       let isPlaying = true;
 
       const playDoubleRing = () => {
-        if (!isPlaying || audioCtx.state !== 'running') return;
+        if (!isPlaying) return;
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
         const now = audioCtx.currentTime;
 
         // Custom function to create a modulated tone representing a high-pitched phone ringer ring
