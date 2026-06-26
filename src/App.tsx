@@ -145,90 +145,25 @@ export default function App() {
     return safeStorage.getItem("enki_sound_alert") !== "false";
   });
 
-  const audioRef = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Inicializa o objeto de áudio nativo do HTML5
+    // Usando um som de telefone/campainha disponível publicamente do Google
+    audioRef.current = new Audio("https://actions.google.com/sounds/v1/alarms/phone_ring.ogg");
+    audioRef.current.loop = true;
+  }, []);
 
   const playNotificationSound = () => {
     try {
-      if (audioRef.current && audioRef.current.pause) {
-        audioRef.current.pause();
+      if (audioRef.current) {
         audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(e => {
+          console.warn("Reprodução de áudio bloqueada pelo navegador. O usuário precisa interagir com a página primeiro.", e);
+        });
       }
-
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {});
-      }
-      
-      let intervalId: any;
-      let isPlaying = true;
-
-      const playDoubleRing = () => {
-        if (!isPlaying) return;
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume().catch(() => {});
-        }
-        const now = audioCtx.currentTime;
-
-        // Custom function to create a modulated tone representing a high-pitched phone ringer ring
-        const createRingOscillator = (freq: number, start: number, end: number) => {
-          const osc = audioCtx.createOscillator();
-          const lfo = audioCtx.createOscillator();
-          const lfoGain = audioCtx.createGain();
-          const gainNode = audioCtx.createGain();
-
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(freq, start);
-
-          // 20Hz rapid frequency vibration for that iconic phone ringer "trrrrrr"
-          lfo.type = "square";
-          lfo.frequency.setValueAtTime(20, start);
-          lfoGain.gain.setValueAtTime(45, start);
-
-          // Envelope modeling clear solid sound with smooth rise and fall
-          gainNode.gain.setValueAtTime(0, start);
-          gainNode.gain.linearRampToValueAtTime(0.35, start + 0.05); // slightly louder max volume (0.35)
-          gainNode.gain.setValueAtTime(0.35, end - 0.05);
-          gainNode.gain.linearRampToValueAtTime(0, end);
-
-          lfo.connect(lfoGain);
-          lfoGain.connect(osc.frequency);
-
-          osc.connect(gainNode);
-          gainNode.connect(audioCtx.destination);
-
-          lfo.start(start);
-          lfo.stop(end);
-          osc.start(start);
-          osc.stop(end);
-        };
-
-        // Standard double-ring pattern:
-        // Ring 1: starts at 'now', ends 0.7s later
-        // Ring 2: starts 0.9s later, ends 1.6s later (0.2s pause in between)
-        // Tune with harmonious third (550Hz and 680Hz) to represent a multi-note loud electronic bell
-        createRingOscillator(550, now, now + 0.7);
-        createRingOscillator(685, now, now + 0.7);
-
-        createRingOscillator(550, now + 0.9, now + 1.6);
-        createRingOscillator(685, now + 0.9, now + 1.6);
-      };
-
-      playDoubleRing();
-      intervalId = setInterval(playDoubleRing, 3000);
-
-      audioRef.current = {
-        loop: true,
-        currentTime: 0,
-        pause: () => {
-          isPlaying = false;
-          clearInterval(intervalId);
-          if (audioCtx.state === 'running') {
-            audioCtx.close().catch(() => {});
-          }
-        }
-      };
     } catch (e) {
-      console.warn("Audio Context blocked or unsupported:", e);
+      console.warn("Erro ao tentar tocar o som:", e);
     }
   };
 
