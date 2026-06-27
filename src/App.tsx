@@ -137,6 +137,7 @@ export default function App() {
   });
 
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const permissaoAudio = useRef(false);
 
   const printDirectDbOrder = (dbItem: any) => {
     const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
@@ -418,7 +419,7 @@ export default function App() {
           showToast("Novo pedido recebido via site!", "success");
           
           // Executa o aviso sonoro se habilitado
-          if (safeStorage.getItem("enki_sound_alert") !== "false") {
+          if (permissaoAudio.current) {
             const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
             if (aud) {
               aud.currentTime = 0;
@@ -2026,6 +2027,7 @@ export default function App() {
                   setSoundAlertActive(val);
                   safeStorage.setItem("enki_sound_alert", val ? "true" : "false");
                   if (val) {
+                    permissaoAudio.current = true;
                     const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
                     if (aud) {
                       aud.play().then(() => {
@@ -2039,6 +2041,8 @@ export default function App() {
                     } else {
                       setAudioUnlocked(true);
                     }
+                  } else {
+                    permissaoAudio.current = false;
                   }
                   showToast(val ? "Sinal sonoro ativo (destravado)!" : "Sinal sonoro desativado.", "success");
                 }}
