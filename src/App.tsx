@@ -136,8 +136,28 @@ export default function App() {
     return safeStorage.getItem("enki_sound_alert") !== "false";
   });
 
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
-  const permissaoAudio = useRef(false);
+  const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => {
+    return safeStorage.getItem("enki_sound_alert") !== "false";
+  });
+  const permissaoAudio = useRef(safeStorage.getItem("enki_sound_alert") !== "false");
+
+  useEffect(() => {
+    const unlockAudio = () => {
+      if (permissaoAudio.current) {
+        const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
+        if (aud) {
+          aud.play().then(() => {
+            aud.pause();
+            aud.currentTime = 0;
+          }).catch(e => console.log("Audio unlock failed on interaction:", e));
+        }
+      }
+      window.removeEventListener('pointerdown', unlockAudio);
+    };
+    
+    window.addEventListener('pointerdown', unlockAudio);
+    return () => window.removeEventListener('pointerdown', unlockAudio);
+  }, []);
 
   const printDirectDbOrder = (dbItem: any) => {
     const aud = document.getElementById('audio-alerta') as HTMLAudioElement;

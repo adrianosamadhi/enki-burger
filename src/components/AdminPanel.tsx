@@ -929,6 +929,7 @@ export function AdminPanel({
               >
                 <span>{audioUnlocked ? "🔔 Som Ligado" : "🔕 Som Desligado (Clique p/ Ligar)"}</span>
               </button>
+              <button type="button" onClick={() => { const aud = document.getElementById('audio-alerta') as HTMLAudioElement; if (aud) { if (aud.paused) { aud.currentTime = 0; aud.play().catch(console.error); } else { aud.pause(); aud.currentTime = 0; } } }} className="flex-1 sm:flex-none px-4 py-3 rounded-2xl text-xs font-black border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5">🎵 Testar / Parar Som</button>
               <button
                 type="button"
                 onClick={() => setAutoPrintActive?.(!autoPrintActive)}
