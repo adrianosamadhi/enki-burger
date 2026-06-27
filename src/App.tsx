@@ -1687,7 +1687,7 @@ export default function App() {
 
   return (
     <div className="bg-stone-50 text-neutral-950 min-h-screen pb-16 relative">
-      <audio id="audio-alerta" src="https://assets.mixkit.co/active_storage/sfx/2873/2873-preview.mp3" loop crossOrigin="anonymous" preload="auto" style={{ display: 'none' }}></audio>
+      <audio id="audio-alerta" src="https://www.soundjay.com/phone/sounds/telephone-ring-04.mp3" loop crossOrigin="anonymous" preload="auto" style={{ display: 'none' }}></audio>
       {/* Toast Notifier */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none">
