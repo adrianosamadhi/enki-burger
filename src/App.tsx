@@ -1667,7 +1667,7 @@ export default function App() {
 
   return (
     <div className="bg-stone-50 text-neutral-950 min-h-screen pb-16 relative">
-      <audio id="audio-alerta" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" loop preload="auto" style={{ display: 'none' }}></audio>
+      <audio id="audio-alerta" src="/alerta.mp3" loop preload="auto" style={{ display: 'none' }}></audio>
       {/* Toast Notifier */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none">
@@ -2028,21 +2028,22 @@ export default function App() {
                   safeStorage.setItem("enki_sound_alert", val ? "true" : "false");
                   if (val) {
                     permissaoAudio.current = true;
+                    setAudioUnlocked(true);
                     const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
                     if (aud) {
                       aud.play().then(() => {
                         aud.pause();
                         aud.currentTime = 0;
-                        setAudioUnlocked(true);
-                      }).catch(e => {
-                        console.error("Audio unlock play prevented:", e);
-                        setAudioUnlocked(true);
-                      });
-                    } else {
-                      setAudioUnlocked(true);
+                      }).catch(e => console.log(e));
                     }
                   } else {
                     permissaoAudio.current = false;
+                    setAudioUnlocked(false);
+                    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
+                    if (aud) {
+                      aud.pause();
+                      aud.currentTime = 0;
+                    }
                   }
                   showToast(val ? "Sinal sonoro ativo (destravado)!" : "Sinal sonoro desativado.", "success");
                 }}

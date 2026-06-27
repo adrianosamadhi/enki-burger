@@ -920,14 +920,14 @@ export function AdminPanel({
             <div className="flex gap-2 w-full sm:w-auto">
               <button
                 type="button"
-                onClick={() => setSoundAlertActive?.(true)}
+                onClick={() => setSoundAlertActive?.(!audioUnlocked)}
                 className={`flex-1 sm:flex-none px-4 py-3 rounded-2xl text-xs font-black border transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
                   audioUnlocked
                     ? "bg-green-600 text-white border-green-600"
                     : "bg-white text-stone-500 border-stone-200 hover:border-stone-300"
                 }`}
               >
-                <span>{audioUnlocked ? "🔔 Som Habilitado" : "🔕 Clique para Habilitar Som"}</span>
+                <span>{audioUnlocked ? "🔔 Som Ligado" : "🔕 Som Desligado (Clique p/ Ligar)"}</span>
               </button>
               <button
                 type="button"
