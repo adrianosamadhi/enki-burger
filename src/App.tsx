@@ -136,33 +136,13 @@ export default function App() {
     return safeStorage.getItem("enki_sound_alert") !== "false";
   });
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
 
-  useEffect(() => {
-    // Inicializa o objeto de áudio nativo do HTML5
-    // Usando um som de telefone/campainha disponível publicamente do Google
-    audioRef.current = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
-    audioRef.current.loop = true;
-  }, []);
-
-  const playNotificationSound = () => {
-    try {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(e => {
-          console.warn("Reprodução de áudio bloqueada pelo navegador. O usuário precisa interagir com a página primeiro.", e);
-        });
-      }
-    } catch (e) {
-      console.warn("Erro ao tentar tocar o som:", e);
-    }
-  };
-
   const printDirectDbOrder = (dbItem: any) => {
-    if (audioRef.current && audioRef.current.pause) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
+    if (aud) {
+      aud.pause();
+      aud.currentTime = 0;
     }
 
     const orderId = dbItem.gateway_id || `PED-${dbItem.id || Math.floor(1000 + Math.random() * 9000)}`;
@@ -439,7 +419,11 @@ export default function App() {
           
           // Executa o aviso sonoro se habilitado
           if (safeStorage.getItem("enki_sound_alert") !== "false") {
-            playNotificationSound();
+            const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
+            if (aud) {
+              aud.currentTime = 0;
+              aud.play().catch(console.error);
+            }
           }
           
           // Executa a auto-impressão se habilitada
@@ -1454,9 +1438,10 @@ export default function App() {
   };
 
   const printReceiptOutput = (orderId: string) => {
-    if (audioRef.current && audioRef.current.pause) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
+    if (aud) {
+      aud.pause();
+      aud.currentTime = 0;
     }
 
     const o = ordersHistory.find((item) => item.id === orderId);
@@ -1555,9 +1540,10 @@ export default function App() {
   };
 
   const printTestOutput = () => {
-    if (audioRef.current && audioRef.current.pause) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
+    if (aud) {
+      aud.pause();
+      aud.currentTime = 0;
     }
 
     const receipt = `
@@ -1680,6 +1666,7 @@ export default function App() {
 
   return (
     <div className="bg-stone-50 text-neutral-950 min-h-screen pb-16 relative">
+      <audio id="audio-alerta" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" loop preload="auto" style={{ display: 'none' }}></audio>
       {/* Toast Notifier */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none">
@@ -2038,16 +2025,20 @@ export default function App() {
                 setSoundAlertActive={(val) => {
                   setSoundAlertActive(val);
                   safeStorage.setItem("enki_sound_alert", val ? "true" : "false");
-                  if (val && audioRef.current) {
-                    setAudioUnlocked(true);
-                    audioRef.current.play().then(() => {
-                      if (audioRef.current) {
-                        audioRef.current.pause();
-                        audioRef.current.currentTime = 0;
-                      }
-                    }).catch(e => {
-                      console.error("Audio unlock play prevented:", e);
-                    });
+                  if (val) {
+                    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
+                    if (aud) {
+                      aud.play().then(() => {
+                        aud.pause();
+                        aud.currentTime = 0;
+                        setAudioUnlocked(true);
+                      }).catch(e => {
+                        console.error("Audio unlock play prevented:", e);
+                        setAudioUnlocked(true);
+                      });
+                    } else {
+                      setAudioUnlocked(true);
+                    }
                   }
                   showToast(val ? "Sinal sonoro ativo (destravado)!" : "Sinal sonoro desativado.", "success");
                 }}
