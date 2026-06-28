@@ -146,10 +146,15 @@ export default function App() {
       if (permissaoAudio.current) {
         const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
         if (aud) {
+          aud.muted = true;
           aud.play().then(() => {
             aud.pause();
             aud.currentTime = 0;
-          }).catch(e => console.log("Audio unlock failed on interaction:", e));
+            aud.muted = false;
+          }).catch(e => {
+            console.log("Audio unlock failed on interaction:", e);
+            aud.muted = false;
+          });
         }
       }
       window.removeEventListener('pointerdown', unlockAudio);
@@ -443,7 +448,7 @@ export default function App() {
             const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
             if (aud) {
               aud.currentTime = 0;
-              aud.play().catch(console.error);
+              aud.play().catch(error => console.log('Autoplay block:', error));
             }
           }
           
@@ -2051,10 +2056,15 @@ export default function App() {
                     setAudioUnlocked(true);
                     const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
                     if (aud) {
+                      aud.muted = true;
                       aud.play().then(() => {
                         aud.pause();
                         aud.currentTime = 0;
-                      }).catch(e => console.log(e));
+                        aud.muted = false;
+                      }).catch(e => {
+                        console.log("Autoplay block prime:", e);
+                        aud.muted = false;
+                      });
                     }
                   } else {
                     permissaoAudio.current = false;
