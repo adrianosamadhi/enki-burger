@@ -461,7 +461,9 @@ export default function App() {
             const status = payload.new.gateway_status;
             // Apenas imprime se for aprovado no checkout online, ou se for pagamento na entrega (que entra como Pendente)
             if (status === "Aprovado" || status === "Pendente") {
-              printDirectDbOrder(payload.new);
+              setTimeout(() => {
+                printDirectDbOrder(payload.new);
+              }, 1000);
             }
           }
 
