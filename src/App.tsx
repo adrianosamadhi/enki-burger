@@ -451,21 +451,6 @@ export default function App() {
               aud.play().catch(error => console.log('Autoplay block:', error));
             }
           }
-          
-          // Executa a auto-impressão se habilitada
-          if (
-            safeStorage.getItem("enki_auto_print") === "true" && 
-            payload && 
-            payload.new
-          ) {
-            const status = payload.new.gateway_status;
-            // Apenas imprime se for aprovado no checkout online, ou se for pagamento na entrega (que entra como Pendente)
-            if (status === "Aprovado" || status === "Pendente") {
-              setTimeout(() => {
-                printDirectDbOrder(payload.new);
-              }, 1000);
-            }
-          }
 
           // Sincroniza localmente o histórico do aplicativo
           fetchRemoteOrders(supabaseClient);
