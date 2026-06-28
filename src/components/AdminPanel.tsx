@@ -917,7 +917,7 @@ export function AdminPanel({
                 <p className="text-[11px] text-stone-500 leading-normal mt-0.5">Ative sinais sonoros e envie cupons diretamente para a impressora assim que entrarem no sistema.</p>
               </div>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setSoundAlertActive?.(!audioUnlocked)}
