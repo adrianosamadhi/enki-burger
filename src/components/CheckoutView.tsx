@@ -168,6 +168,11 @@ export function CheckoutView({
   };
 
   const executeCheckoutSubmit = async () => {
+    if (!isStoreOpen(config.businessHours)) {
+      showToast("Loja fechada. Não é possível realizar novos pedidos no momento.", "error");
+      return;
+    }
+
     if (!name.trim() || !phone.trim()) {
       showToast("Preencha o Nome Completo e o WhatsApp.", "error");
       return;
@@ -888,16 +893,25 @@ export function CheckoutView({
 
       {/* Mobile Submit Trigger Button */}
       <div className="lg:hidden pt-2">
+        {!isStoreOpen(config.businessHours) && (
+          <div className="text-red-600 bg-red-50 border border-red-200 text-xs font-bold py-2.5 px-3 rounded-xl text-center mb-2 font-sans">
+            Loja fechada. Não é possível realizar novos pedidos no momento.
+          </div>
+        )}
         <button
           onClick={executeCheckoutSubmit}
-          disabled={deliveryType === "entrega" && deliveryDistance !== null && deliveryDistance > 3}
-          className={`w-full font-black py-4 rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg cursor-pointer ${
-            deliveryType === "entrega" && deliveryDistance !== null && deliveryDistance > 3
-              ? "bg-neutral-800 text-stone-500 cursor-not-allowed opacity-40 border border-neutral-700"
-              : "bg-[#FF3D00] hover:bg-[#E03600] text-white"
+          disabled={!isStoreOpen(config.businessHours) || (deliveryType === "entrega" && deliveryDistance !== null && deliveryDistance > 3)}
+          className={`w-full font-black py-4 rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg ${
+            !isStoreOpen(config.businessHours)
+              ? "bg-stone-200 text-stone-400 cursor-not-allowed border border-stone-300"
+              : (deliveryType === "entrega" && deliveryDistance !== null && deliveryDistance > 3)
+                ? "bg-neutral-800 text-stone-500 cursor-not-allowed opacity-40 border border-neutral-700"
+                : "bg-[#FF3D00] hover:bg-[#E03600] text-[#FFFFFF] cursor-pointer"
           }`}
         >
-          {deliveryType === "entrega" && deliveryDistance !== null && deliveryDistance > 3 ? (
+          {!isStoreOpen(config.businessHours) ? (
+            <span>Loja Fechada</span>
+          ) : deliveryType === "entrega" && deliveryDistance !== null && deliveryDistance > 3 ? (
             <span>Entrega Indisponível (Fora do Alcance de 3km)</span>
           ) : (
             <>

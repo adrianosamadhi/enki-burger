@@ -2078,6 +2078,7 @@ export default function App() {
             onAdvance={handleAdvanceToCheckout}
             onSubmit={executeCheckoutSubmit}
             isCheckoutView={view === "checkout"}
+            isClosed={!isStoreOpen(config.businessHours)}
           />
         </div>
       </main>

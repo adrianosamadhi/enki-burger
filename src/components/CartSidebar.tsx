@@ -17,6 +17,7 @@ interface CartSidebarProps {
   onAdvance: () => void;
   onSubmit: () => void;
   isCheckoutView: boolean;
+  isClosed?: boolean;
 }
 
 export function CartSidebar({
@@ -28,6 +29,7 @@ export function CartSidebar({
   onAdvance,
   onSubmit,
   isCheckoutView,
+  isClosed = false,
 }: CartSidebarProps) {
   const items = Object.values(carrinho);
   const count = items.reduce((acc, item) => acc + item.qtd, 0);
@@ -129,12 +131,24 @@ export function CartSidebar({
                 Avançar para Pagamento <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
-              <button
-                onClick={onSubmit}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg cursor-pointer animate-pulse"
-              >
-                Pagar <Check className="w-4 h-4" />
-              </button>
+              <>
+                {isClosed && (
+                  <div className="text-red-600 bg-red-50 border border-red-200 text-xs font-bold py-2.5 px-3 rounded-xl text-center mb-2 font-sans">
+                    Loja fechada. Não é possível realizar novos pedidos no momento.
+                  </div>
+                )}
+                <button
+                  onClick={onSubmit}
+                  disabled={isClosed}
+                  className={`w-full font-black py-4 rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg ${
+                    isClosed
+                      ? "bg-neutral-200 text-stone-400 cursor-not-allowed border border-stone-300"
+                      : "bg-green-600 hover:bg-green-700 text-white cursor-pointer animate-pulse"
+                  }`}
+                >
+                  Pagar <Check className="w-4 h-4" />
+                </button>
+              </>
             )}
           </div>
         </>
