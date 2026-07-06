@@ -112,17 +112,16 @@ export async function calculateDynamicFreight(
   neighborhood: string,
   cep: string,
   config: StoreConfig
-): Promise<{ distanceKm: number; deliveryFee: number } | null> {
+): Promise<{ distanceKm: number; deliveryFee: number | null } | null> {
   const originLat = parseFloat(config.storeLat) || -23.564551;
   const originLon = parseFloat(config.storeLon) || -46.652150;
   
-  // Format target address for OpenStreetMap lookup
+  // Format target address for OpenStreetMap lookup, concatenating "São Paulo, SP" to secure local precision
   const cleanCep = cep.replace(/\D/g, "");
-  // Prioritize CEP to securely anchor city and neighborhood context
-  const queryAddress = `${street}, ${number}, ${neighborhood ? neighborhood + ', ' : ''}${cleanCep ? cleanCep + ', ' : ''}Brasil`;
+  const queryAddress = `${street}, ${number}, ${neighborhood ? neighborhood + ', ' : ''}São Paulo, SP, ${cleanCep ? cleanCep + ', ' : ''}Brasil`;
 
   try {
-    // Stage 1: Geocode destination using Nominatim
+    // Stage 1: Geocode destination using Nominatim with "São Paulo, SP" prefix
     const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
       queryAddress
     )}&limit=1`;
@@ -138,8 +137,8 @@ export async function calculateDynamicFreight(
       destLat = parseFloat(geoData[0].lat);
       destLon = parseFloat(geoData[0].lon);
     } else {
-      // Fallback 1: Try street + CEP strictly (bypassing number or custom neighborhood typos)
-      const fallbackQuery = `${street}, ${cleanCep ? cleanCep + ', ' : ''}Brasil`;
+      // Fallback 1: Try street + "São Paulo, SP" + CEP strictly (bypassing number or custom neighborhood typos)
+      const fallbackQuery = `${street}, São Paulo, SP, ${cleanCep ? cleanCep + ', ' : ''}Brasil`;
       const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
         fallbackQuery
       )}&limit=1`;
@@ -152,10 +151,11 @@ export async function calculateDynamicFreight(
         destLat = parseFloat(fallbackData[0].lat);
         destLon = parseFloat(fallbackData[0].lon);
       } else {
-        // Fallback 2: Geocode strictly by postal code
-        const cepUrl = `https://nominatim.openstreetmap.org/search?format=json&postalcode=${encodeURIComponent(
-          cleanCep
-        )}&country=Brazil&limit=1`;
+        // Fallback 2: Geocode strictly by postal code and "São Paulo, SP"
+        const cepQuery = `${cleanCep}, São Paulo, SP, Brasil`;
+        const cepUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          cepQuery
+        )}&limit=1`;
         const cepRes = await fetch(cepUrl, {
           headers: { "User-Agent": "MenuDigitalApp/2.0" },
         });
@@ -169,7 +169,7 @@ export async function calculateDynamicFreight(
       }
     }
 
-    // Stage 2: Retrieve real driving route and distance using OSRM Routing Engine
+    // Stage 2: Retrieve real driving route and distance using OSRM Routing Engine. Order: longitude,latitude
     const routeUrl = `https://router.project-osrm.org/route/v1/driving/${originLon},${originLat};${destLon},${destLat}?overview=false`;
     const routeRes = await fetch(routeUrl);
     const routeData = await routeRes.json();
@@ -183,7 +183,12 @@ export async function calculateDynamicFreight(
       distanceKm = calculateDirectDistance(originLat, originLon, destLat, destLon);
     }
 
-    // Dynamic fee calculation based on thresholds
+    // Check if distance exceeds configured maximum limit
+    if (config.maxDeliveryKm && config.maxDeliveryKm > 0 && distanceKm > config.maxDeliveryKm) {
+      return { distanceKm, deliveryFee: null };
+    }
+
+    // Dynamic fee calculation based on thresholds (iFood rules)
     const basePrice = config.ifoodBase;
     const kmPrice = config.ifoodKm;
     const deliveryFee =
@@ -197,6 +202,12 @@ export async function calculateDynamicFreight(
       1.5,
       ((street.length + parseInt(number || "1", 10)) % 7) + Math.random() * 0.8
     );
+    
+    // Check limit on fallback mock distance as well
+    if (config.maxDeliveryKm && config.maxDeliveryKm > 0 && mockDistance > config.maxDeliveryKm) {
+      return { distanceKm: mockDistance, deliveryFee: null };
+    }
+
     const deliveryFee =
       mockDistance <= 3 ? config.ifoodBase : config.ifoodBase + (mockDistance - 3) * config.ifoodKm;
     return { distanceKm: mockDistance, deliveryFee };

@@ -1038,7 +1038,7 @@ export default function App() {
       setDeliveryFee(logistics.deliveryFee);
       if (config.maxDeliveryKm && config.maxDeliveryKm > 0 && logistics.distanceKm > config.maxDeliveryKm) {
         showToast(`Distância de ${logistics.distanceKm.toFixed(1)} km excede o limite de ${config.maxDeliveryKm} km. Adicione 'Retirada na Loja'.`, "error");
-      } else if (isManual) {
+      } else if (isManual && logistics.deliveryFee !== null) {
         showToast(`Frete calculado: ${logistics.distanceKm.toFixed(1)} km - ${formatBRL(logistics.deliveryFee)}`, "success");
       }
     } else {
@@ -1052,11 +1052,12 @@ export default function App() {
 
   const handleSetManualDistance = useCallback((km: number) => {
     setDeliveryDistance(km);
-    const fee = km <= 3 ? config.ifoodBase : config.ifoodBase + (km - 3) * config.ifoodKm;
-    setDeliveryFee(fee);
-    
     if (config.maxDeliveryKm && config.maxDeliveryKm > 0 && km > config.maxDeliveryKm) {
+      setDeliveryFee(null);
       showToast(`Distância manual de ${km.toFixed(1)} km excede o limite de ${config.maxDeliveryKm} km.`, "error");
+    } else {
+      const fee = km <= 3 ? config.ifoodBase : config.ifoodBase + (km - 3) * config.ifoodKm;
+      setDeliveryFee(fee);
     }
   }, [config]);
 
@@ -2140,6 +2141,8 @@ export default function App() {
             onSubmit={executeCheckoutSubmit}
             isCheckoutView={view === "checkout"}
             isClosed={!isStoreOpen(config.businessHours)}
+            deliveryDistance={deliveryDistance}
+            maxDeliveryKm={config.maxDeliveryKm}
           />
         </div>
       </main>

@@ -18,6 +18,8 @@ interface CartSidebarProps {
   onSubmit: () => void;
   isCheckoutView: boolean;
   isClosed?: boolean;
+  deliveryDistance?: number | null;
+  maxDeliveryKm?: number;
 }
 
 export function CartSidebar({
@@ -30,6 +32,8 @@ export function CartSidebar({
   onSubmit,
   isCheckoutView,
   isClosed = false,
+  deliveryDistance = null,
+  maxDeliveryKm = 0,
 }: CartSidebarProps) {
   const items = Object.values(carrinho);
   const count = items.reduce((acc, item) => acc + item.qtd, 0);
@@ -112,10 +116,14 @@ export function CartSidebar({
               <span>Subtotal dos itens</span>
               <span className="font-bold text-neutral-950">{formatBRL(subtotal)}</span>
             </div>
-            <div className="flex justify-between text-xs text-stone-500">
+             <div className="flex justify-between text-xs text-stone-500">
               <span>Taxa de Entrega</span>
               <span className="font-bold text-neutral-950">
-                {deliveryType === "retirada" ? "Grátis (Retirada)" : (deliveryFee !== null ? formatBRL(deliveryFee) : "Consulte...")}
+                {deliveryType === "retirada"
+                  ? "Grátis (Retirada)"
+                  : (deliveryDistance !== null && maxDeliveryKm > 0 && deliveryDistance > maxDeliveryKm)
+                    ? <span className="text-red-600 font-bold">Fora da área de entrega</span>
+                    : (deliveryFee !== null ? formatBRL(deliveryFee) : "Consulte...")}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm font-black text-neutral-950 pt-2 border-t">
@@ -139,14 +147,22 @@ export function CartSidebar({
                 )}
                 <button
                   onClick={onSubmit}
-                  disabled={isClosed}
+                  disabled={isClosed || (deliveryType === "entrega" && deliveryDistance !== null && maxDeliveryKm > 0 && deliveryDistance > maxDeliveryKm)}
                   className={`w-full font-black py-4 rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg ${
                     isClosed
                       ? "bg-neutral-200 text-stone-400 cursor-not-allowed border border-stone-300"
-                      : "bg-green-600 hover:bg-green-700 text-white cursor-pointer animate-pulse"
+                      : (deliveryType === "entrega" && deliveryDistance !== null && maxDeliveryKm > 0 && deliveryDistance > maxDeliveryKm)
+                        ? "bg-neutral-800 text-stone-500 cursor-not-allowed opacity-40 border border-neutral-700"
+                        : "bg-green-600 hover:bg-green-700 text-white cursor-pointer animate-pulse"
                   }`}
                 >
-                  Pagar <Check className="w-4 h-4" />
+                  {deliveryType === "entrega" && deliveryDistance !== null && maxDeliveryKm > 0 && deliveryDistance > maxDeliveryKm ? (
+                    <span>Fora da área de entrega</span>
+                  ) : (
+                    <>
+                      Pagar <Check className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </>
             )}

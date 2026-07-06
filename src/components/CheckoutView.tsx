@@ -878,7 +878,11 @@ export function CheckoutView({
             )}
           </span>
           <span className="font-semibold text-stone-200">
-            {deliveryType === "retirada" ? "Grátis (Retirada)" : (deliveryFee !== null ? formatBRL(deliveryFee) : "Calcule o frete...")}
+            {deliveryType === "retirada"
+              ? "Grátis (Retirada)"
+              : (deliveryDistance !== null && config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance > config.maxDeliveryKm)
+                ? <span className="text-red-500 font-bold">Fora da área de entrega</span>
+                : (deliveryFee !== null ? formatBRL(deliveryFee) : "Calcule o frete...")}
           </span>
         </div>
         <hr className="border-white/10 my-1" />
@@ -901,19 +905,19 @@ export function CheckoutView({
         )}
         <button
           onClick={executeCheckoutSubmit}
-          disabled={!isStoreOpen(config.businessHours) || (deliveryType === "entrega" && deliveryDistance !== null && deliveryDistance > 3)}
+          disabled={!isStoreOpen(config.businessHours) || (deliveryType === "entrega" && deliveryDistance !== null && config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance > config.maxDeliveryKm)}
           className={`w-full font-black py-4 rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg ${
             !isStoreOpen(config.businessHours)
               ? "bg-stone-200 text-stone-400 cursor-not-allowed border border-stone-300"
-              : (deliveryType === "entrega" && deliveryDistance !== null && deliveryDistance > 3)
+              : (deliveryType === "entrega" && deliveryDistance !== null && config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance > config.maxDeliveryKm)
                 ? "bg-neutral-800 text-stone-500 cursor-not-allowed opacity-40 border border-neutral-700"
                 : "bg-[#FF3D00] hover:bg-[#E03600] text-[#FFFFFF] cursor-pointer"
           }`}
         >
           {!isStoreOpen(config.businessHours) ? (
             <span>Loja Fechada</span>
-          ) : deliveryType === "entrega" && deliveryDistance !== null && deliveryDistance > 3 ? (
-            <span>Entrega Indisponível (Fora do Alcance de 3km)</span>
+          ) : deliveryType === "entrega" && deliveryDistance !== null && config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance > config.maxDeliveryKm ? (
+            <span>Fora da área de entrega (Máx. {config.maxDeliveryKm} km)</span>
           ) : (
             <>
               Confirmar e Pagar <Check className="w-4 h-4" />
