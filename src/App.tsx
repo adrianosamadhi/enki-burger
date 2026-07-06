@@ -843,36 +843,49 @@ export default function App() {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    globalOrdersPromise = null;
-    // 1. Atualiza estado local imediatamente (filtra o pedido)
-    setOrdersHistory(prev => prev.filter(o => o.id !== orderId));
-    
-    // 2. Remove do localStorage
-    const saved = safeStorage.getItem("orders_history");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const updated = parsed.filter((o: any) => o.id !== orderId);
-        safeStorage.setItem("orders_history", JSON.stringify(updated));
-      } catch (e) {
-        console.error("Erro ao atualizar localStorage", e);
-      }
-    }
-
-    // 3. Remove do banco de dados remotamente, se conectado
+    // 1. Se conectado ao Supabase, remove remotamente primeiro
     if (supabaseClient) {
       try {
         const { error } = await supabaseClient.from("clientes_pedidos").delete().eq("id", orderId);
         if (error) {
           console.error("Erro ao deletar pedido no Supabase:", error);
-          showToast("Pedido excluído localmente, mas erro na nuvem.", "error");
+          showToast(`Erro ao excluir pedido no banco: ${error.message || 'Erro desconhecido'}`, "error");
+          return; // Aborta e mantém o estado original
         } else {
+          // Deletado com sucesso na nuvem, agora sim limpa o cache global e prossegue localmente
+          globalOrdersPromise = null;
+          setOrdersHistory(prev => prev.filter(o => o.id !== orderId));
+          
+          const saved = safeStorage.getItem("orders_history");
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              const updated = parsed.filter((o: any) => o.id !== orderId);
+              safeStorage.setItem("orders_history", JSON.stringify(updated));
+            } catch (e) {
+              console.error("Erro ao atualizar localStorage", e);
+            }
+          }
           showToast("Pedido cancelado e excluído com sucesso.", "success");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Erro exceção ao deletar pedido:", err);
+        showToast(`Erro ao excluir pedido: ${err.message || 'Sem conexão'}`, "error");
+        return; // Aborta
       }
     } else {
+      // Modo offline
+      setOrdersHistory(prev => prev.filter(o => o.id !== orderId));
+      const saved = safeStorage.getItem("orders_history");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const updated = parsed.filter((o: any) => o.id !== orderId);
+          safeStorage.setItem("orders_history", JSON.stringify(updated));
+        } catch (e) {
+          console.error("Erro ao atualizar localStorage", e);
+        }
+      }
       showToast("Pedido excluído offline.", "success");
     }
   };
@@ -1014,18 +1027,20 @@ export default function App() {
   };
 
   // Logistics calculate action
-  const handleCalculateRoute = useCallback(async (street: string, number: string, neighborhood: string, cep: string) => {
+  const handleCalculateRoute = useCallback(async (street: string, number: string, neighborhood: string, cep: string, isManual = false) => {
     const logistics = await calculateDynamicFreight(street, number, neighborhood, cep, config);
     if (logistics) {
       setDeliveryDistance(logistics.distanceKm);
       setDeliveryFee(logistics.deliveryFee);
       if (config.maxDeliveryKm && config.maxDeliveryKm > 0 && logistics.distanceKm > config.maxDeliveryKm) {
         showToast(`Distância de ${logistics.distanceKm.toFixed(1)} km excede o limite de ${config.maxDeliveryKm} km. Adicione 'Retirada na Loja'.`, "error");
-      } else {
+      } else if (isManual) {
         showToast(`Frete calculado: ${logistics.distanceKm.toFixed(1)} km - ${formatBRL(logistics.deliveryFee)}`, "success");
       }
     } else {
-      showToast("Não foi possível calcular o frete por coordenadas. Adicionando valor fixo.", "error");
+      if (isManual) {
+        showToast("Não foi possível calcular o frete por coordenadas. Adicionando valor fixo.", "error");
+      }
       setDeliveryDistance(1.8);
       setDeliveryFee(config.ifoodBase);
     }

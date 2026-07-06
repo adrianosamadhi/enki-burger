@@ -30,7 +30,7 @@ interface CheckoutViewProps {
   deliveryDistance: number | null;
   deliveryType: "entrega" | "retirada";
   onDeliveryTypeChange: (type: "entrega" | "retirada") => void;
-  onCalculateRoute: (street: string, number: string, neighborhood: string, cep: string) => Promise<void>;
+  onCalculateRoute: (street: string, number: string, neighborhood: string, cep: string, isManual?: boolean) => Promise<void>;
   onSetManualDistance?: (km: number) => void;
   onSaveProfile: (
     nome: string,
@@ -120,7 +120,8 @@ export function CheckoutView({
           clientProfile.rua,
           clientProfile.numero,
           clientProfile.bairro || "",
-          clientProfile.cep || ""
+          clientProfile.cep || "",
+          false
         ).finally(() => {
           setCalculatingRoute(false);
         });
@@ -163,7 +164,7 @@ export function CheckoutView({
       return;
     }
     setCalculatingRoute(true);
-    await onCalculateRoute(street, number, neighborhood, cep);
+    await onCalculateRoute(street, number, neighborhood, cep, true);
     setCalculatingRoute(false);
   };
 
