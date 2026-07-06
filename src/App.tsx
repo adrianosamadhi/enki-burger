@@ -843,10 +843,14 @@ export default function App() {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    // 1. Se conectado ao Supabase, remove remotamente primeiro
+    // 1. Localizar o pedido no histórico para obter o ID bigint real do Supabase (guardado em gatewayId)
+    const targetOrder = ordersHistory.find(o => o.id === orderId);
+    const dbId = targetOrder?.gatewayId || orderId;
+
+    // 2. Se conectado ao Supabase, remove remotamente primeiro usando o ID real bigint do banco
     if (supabaseClient) {
       try {
-        const { error } = await supabaseClient.from("clientes_pedidos").delete().eq("id", orderId);
+        const { error } = await supabaseClient.from("clientes_pedidos").delete().eq("id", dbId);
         if (error) {
           console.error("Erro ao deletar pedido no Supabase:", error);
           showToast(`Erro ao excluir pedido no banco: ${error.message || 'Erro desconhecido'}`, "error");
@@ -1173,7 +1177,7 @@ export default function App() {
         const enderecoDb = deliveryType === "retirada"
           ? "Retirada no Balcão"
           : `${newOrder.rua}, ${newOrder.numero} - ${newOrder.bairro} (CEP: ${cep})`;
-        await supabaseClient.from("clientes_pedidos").insert([
+        const { data: insertedData, error: insertError } = await supabaseClient.from("clientes_pedidos").insert([
           {
             nome: newOrder.nome,
             telefone: newOrder.telefone,
@@ -1183,7 +1187,25 @@ export default function App() {
             gateway_status: newOrder.gatewayStatus,
             gateway_id: newOrder.id,
           },
-        ]);
+        ]).select();
+
+        if (!insertError && insertedData && insertedData.length > 0) {
+          const remoteId = insertedData[0].id?.toString();
+          if (remoteId) {
+            newOrder.gatewayId = remoteId;
+            setOrdersHistory(prev => prev.map(o => o.id === newOrder.id ? { ...o, gatewayId: remoteId } : o));
+            const saved = safeStorage.getItem("orders_history");
+            if (saved) {
+              try {
+                const parsed = JSON.parse(saved);
+                const updated = parsed.map((o: any) => o.id === newOrder.id ? { ...o, gatewayId: remoteId } : o);
+                safeStorage.setItem("orders_history", JSON.stringify(updated));
+              } catch (e) {
+                console.error("Erro ao atualizar localStorage no insert", e);
+              }
+            }
+          }
+        }
         
         // Auto-increment vendas para "Os mais pedidos"
         const prodsToUpdate = [...produtos];
