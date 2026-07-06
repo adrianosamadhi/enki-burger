@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { printReceipt } from "./printReceipt";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -36,6 +36,10 @@ import { DEFAULT_PRODUCTS, DEFAULT_ADDONS, DEFAULT_STORE_CONFIG } from "./data";
 import { safeStorage, calculateDynamicFreight, formatBRL, formatCEP, fetchAddressByCEP, getCartItemTotalPrice, getCartItemSinglePrice, isStoreOpen, getOptimizedImageUrl } from "./utils";
 
 const ADMIN_PASSWORD_HASH = "enki2026";
+
+// Module-level caches to prevent duplicate fetches across component mounts
+let globalDataPromise: Promise<{ configRes: any; productsRes: any; addonsRes: any }> | null = null;
+let globalOrdersPromise: Promise<any> | null = null;
 
 export default function App() {
   // Main states
@@ -475,79 +479,86 @@ export default function App() {
       }
     };
 
-    // 1. Process config
-    client.from("loja_config").select("*").eq("id", 1).maybeSingle()
-      .then(({ data: configData, error: configErr }: any) => {
-        if (configData && !configErr) {
-          const rawProductOrder = configData.product_order || configData.productOrder || configData.productorder;
-          
-          const mappedConfig: StoreConfig = {
-            whatsapp: configData.whatsapp || config.whatsapp,
-            supabaseUrl: configData.supabase_url || config.supabaseUrl || "",
-            supabaseKey: configData.supabase_key || config.supabaseKey || "",
-            ifoodBase: Number(configData.ifood_base) || config.ifoodBase,
-            ifoodKm: Number(configData.ifood_km) || config.ifoodKm,
-            maxDeliveryKm: configData.max_delivery_km !== undefined && configData.max_delivery_km !== null ? Number(configData.max_delivery_km) : config.maxDeliveryKm,
-            mpPubKey: (configData.mp_pub_key && configData.mp_pub_key.includes("sb_publishable")) ? "" : (configData.mp_pub_key || config.mpPubKey || ""),
-            mpAccessToken: configData.mp_access_token || config.mpAccessToken || "",
-            storeName: configData.store_name || config.storeName,
-            storeLogoUrl: configData.store_logo_url || config.storeLogoUrl || "",
-            storeAddress: configData.store_address || config.storeAddress,
-            storeLat: configData.store_lat || config.storeLat,
-            storeLon: configData.store_lon || config.storeLon,
-            businessHours: safeParseJSON(configData.business_hours, config.businessHours || DEFAULT_STORE_CONFIG.businessHours),
-            productOrder: safeParseJSON(rawProductOrder, config.productOrder || []),
-            notificationWebhook: configData.notification_webhook !== undefined 
-              ? configData.notification_webhook 
-              : (config.notificationWebhook || ""),
-          };
-          setConfig(mappedConfig);
-          safeStorage.setItem("cardapio_config", JSON.stringify(mappedConfig));
-        }
-      })
-      .catch((err: any) => console.error("Erro config:", err));
+    if (!globalDataPromise) {
+      globalDataPromise = (async () => {
+        // Executa todas as consultas iniciais em paralelo para economia de conexões e egress
+        const [configRes, productsRes, addonsRes] = await Promise.all([
+          client.from("loja_config").select("*").eq("id", 1).maybeSingle(),
+          client.from("hamburgueria_produtos").select("*"),
+          client.from("hamburgueria_adicionais").select("*")
+        ]);
+        return { configRes, productsRes, addonsRes };
+      })();
+    }
 
-    // 2. Process products
-    client.from("hamburgueria_produtos").select("*")
-      .then(({ data: productsData, error: prodErr }: any) => {
-        if (!prodErr && productsData) {
-          const mappedProducts: Product[] = productsData.map((p: any) => ({
-            id: p.id,
-            categoria: p.categoria,
-            nome: p.nome,
-            descricao: p.descricao || "",
-            preco: Number(p.preco),
-            precoOriginal: p.preco_original ? Number(p.preco_original) : undefined,
-            img: p.img || "",
-            adicionaisPermitidos: p.adicionais_permitidos || [],
-            isActive: p.is_active !== undefined ? !!p.is_active : true,
-            vendas: p.vendas || 0
-          }));
-          setProdutos(mappedProducts);
-          safeStorage.setItem("cardapio_produtos", JSON.stringify(mappedProducts));
-        }
-        setIsLoadingMenu(false);
-      })
-      .catch((err: any) => {
-        console.error("Erro produtos:", err);
-        setIsLoadingMenu(false);
-      });
+    try {
+      const { configRes, productsRes, addonsRes } = await globalDataPromise;
 
-    // 3. Process addons
-    client.from("hamburgueria_adicionais").select("*")
-      .then(({ data: addonsData, error: addonErr }: any) => {
-        if (!addonErr && addonsData) {
-          const mappedAddons: Addon[] = addonsData.map((a: any) => ({
-            id: a.id,
-            nome: a.nome,
-            preco: Number(a.preco),
-            ativo: !!a.ativo
-          }));
-          setAdicionais(mappedAddons);
-          safeStorage.setItem("cardapio_adicionais", JSON.stringify(mappedAddons));
-        }
-      })
-      .catch((err: any) => console.error("Erro addons:", err));
+      // 1. Process config
+      const { data: configData, error: configErr } = configRes;
+      if (configData && !configErr) {
+        const rawProductOrder = configData.product_order || configData.productOrder || configData.productorder;
+        
+        const mappedConfig: StoreConfig = {
+          whatsapp: configData.whatsapp || config.whatsapp,
+          supabaseUrl: configData.supabase_url || config.supabaseUrl || "",
+          supabaseKey: configData.supabase_key || config.supabaseKey || "",
+          ifoodBase: Number(configData.ifood_base) || config.ifoodBase,
+          ifoodKm: Number(configData.ifood_km) || config.ifoodKm,
+          maxDeliveryKm: configData.max_delivery_km !== undefined && configData.max_delivery_km !== null ? Number(configData.max_delivery_km) : config.maxDeliveryKm,
+          mpPubKey: (configData.mp_pub_key && configData.mp_pub_key.includes("sb_publishable")) ? "" : (configData.mp_pub_key || config.mpPubKey || ""),
+          mpAccessToken: configData.mp_access_token || config.mpAccessToken || "",
+          storeName: configData.store_name || config.storeName,
+          storeLogoUrl: configData.store_logo_url || config.storeLogoUrl || "",
+          storeAddress: configData.store_address || config.storeAddress,
+          storeLat: configData.store_lat || config.storeLat,
+          storeLon: configData.store_lon || config.storeLon,
+          businessHours: safeParseJSON(configData.business_hours, config.businessHours || DEFAULT_STORE_CONFIG.businessHours),
+          productOrder: safeParseJSON(rawProductOrder, config.productOrder || []),
+          notificationWebhook: configData.notification_webhook !== undefined 
+            ? configData.notification_webhook 
+            : (config.notificationWebhook || ""),
+        };
+        setConfig(mappedConfig);
+        safeStorage.setItem("cardapio_config", JSON.stringify(mappedConfig));
+      }
+
+      // 2. Process products
+      const { data: productsData, error: prodErr } = productsRes;
+      if (!prodErr && productsData) {
+        const mappedProducts: Product[] = productsData.map((p: any) => ({
+          id: p.id,
+          categoria: p.categoria,
+          nome: p.nome,
+          descricao: p.descricao || "",
+          preco: Number(p.preco),
+          precoOriginal: p.preco_original ? Number(p.preco_original) : undefined,
+          img: p.img || "",
+          adicionaisPermitidos: p.adicionais_permitidos || [],
+          isActive: p.is_active !== undefined ? !!p.is_active : true,
+          vendas: p.vendas || 0
+        }));
+        setProdutos(mappedProducts);
+        safeStorage.setItem("cardapio_produtos", JSON.stringify(mappedProducts));
+      }
+      setIsLoadingMenu(false);
+
+      // 3. Process addons
+      const { data: addonsData, error: addonErr } = addonsRes;
+      if (!addonErr && addonsData) {
+        const mappedAddons: Addon[] = addonsData.map((a: any) => ({
+          id: a.id,
+          nome: a.nome,
+          preco: Number(a.preco),
+          ativo: !!a.ativo
+        }));
+        setAdicionais(mappedAddons);
+        safeStorage.setItem("cardapio_adicionais", JSON.stringify(mappedAddons));
+      }
+    } catch (err) {
+      console.error("Erro config/produtos/addons:", err);
+      setIsLoadingMenu(false);
+    }
 
     // 4. Process Orders (admin specific)
     if (adminAuthenticated) {
@@ -555,12 +566,17 @@ export default function App() {
     }
   };
 
-  const fetchRemoteOrders = async (client: any) => {
-    try {
-      const { data } = await client
+  const fetchRemoteOrders = async (client: any, forceRefresh = false) => {
+    if (!globalOrdersPromise || forceRefresh) {
+      globalOrdersPromise = client
         .from("clientes_pedidos")
         .select("*")
         .order("created_at", { ascending: true });
+    }
+
+    try {
+      const { data, error } = await globalOrdersPromise;
+      if (error) throw error;
       if (data) {
         // Map and append to local order cache lists with dynamic sequence starting from 1
         const mapped: Order[] = data.map((item: any, index: number) => ({
@@ -587,13 +603,14 @@ export default function App() {
         setOrdersHistory(reversed);
         safeStorage.setItem("orders_history", JSON.stringify(reversed));
       }
-    } catch {
-      // Ignored: silent local fallback
+    } catch (err) {
+      console.error("Erro clientes_pedidos:", err);
     }
   };
 
   // State modifiers with asynchronous Supabase integration
   const handleSaveConfig = async (updated: StoreConfig) => {
+    globalDataPromise = null;
     setConfig(updated);
     safeStorage.setItem("cardapio_config", JSON.stringify(updated));
 
@@ -680,6 +697,7 @@ export default function App() {
   };
 
   const handleSaveProduct = async (updated: Product) => {
+    globalDataPromise = null;
     setProdutos((prev) => {
       const exists = prev.findIndex((item) => item.id === updated.id);
       let list = [...prev];
@@ -731,6 +749,7 @@ export default function App() {
   };
 
   const handleDeleteProduct = async (id: string) => {
+    globalDataPromise = null;
     setProdutos((prev) => {
       const list = prev.filter((item) => item.id !== id);
       return list;
@@ -755,6 +774,7 @@ export default function App() {
   };
 
   const handleSaveAddon = async (updated: Addon) => {
+    globalDataPromise = null;
     setAdicionais((prev) => {
       const exists = prev.findIndex((item) => item.id === updated.id);
       let list = [...prev];
@@ -798,6 +818,7 @@ export default function App() {
   };
 
   const handleDeleteAddon = async (id: string) => {
+    globalDataPromise = null;
     setAdicionais((prev) => {
       const list = prev.filter((item) => item.id !== id);
       return list;
@@ -822,6 +843,7 @@ export default function App() {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
+    globalOrdersPromise = null;
     // 1. Atualiza estado local imediatamente (filtra o pedido)
     setOrdersHistory(prev => prev.filter(o => o.id !== orderId));
     
@@ -859,6 +881,7 @@ export default function App() {
     if (!window.confirm("Deseja realmente apagar todo o histórico de pedidos? Esta ação é irreversível e reiniciará a numeração a partir do 1.")) {
       return;
     }
+    globalOrdersPromise = null;
     setOrdersHistory([]);
     safeStorage.removeItem("orders_history");
 
@@ -991,7 +1014,7 @@ export default function App() {
   };
 
   // Logistics calculate action
-  const handleCalculateRoute = async (street: string, number: string, neighborhood: string, cep: string) => {
+  const handleCalculateRoute = useCallback(async (street: string, number: string, neighborhood: string, cep: string) => {
     const logistics = await calculateDynamicFreight(street, number, neighborhood, cep, config);
     if (logistics) {
       setDeliveryDistance(logistics.distanceKm);
@@ -1006,9 +1029,9 @@ export default function App() {
       setDeliveryDistance(1.8);
       setDeliveryFee(config.ifoodBase);
     }
-  };
+  }, [config]);
 
-  const handleSetManualDistance = (km: number) => {
+  const handleSetManualDistance = useCallback((km: number) => {
     setDeliveryDistance(km);
     const fee = km <= 3 ? config.ifoodBase : config.ifoodBase + (km - 3) * config.ifoodKm;
     setDeliveryFee(fee);
@@ -1016,9 +1039,9 @@ export default function App() {
     if (config.maxDeliveryKm && config.maxDeliveryKm > 0 && km > config.maxDeliveryKm) {
       showToast(`Distância manual de ${km.toFixed(1)} km excede o limite de ${config.maxDeliveryKm} km.`, "error");
     }
-  };
+  }, [config]);
 
-  const handleSaveProfile = (
+  const handleSaveProfile = useCallback((
     nome: string,
     telefone: string,
     rua: string,
@@ -1062,7 +1085,7 @@ export default function App() {
 
       return newProfile;
     });
-  };
+  }, [deliveryType]);
 
   // Order triggers
   const handleFinalizeOrder = async (
@@ -1124,6 +1147,7 @@ export default function App() {
       detalhesEstruturados: items,
     };
 
+    globalOrdersPromise = null;
     const nextHistory = [newOrder, ...ordersHistory];
     setOrdersHistory(nextHistory);
     safeStorage.setItem("orders_history", JSON.stringify(nextHistory));
