@@ -1121,7 +1121,7 @@ export default function App() {
     paymentId: string,
     gatewayStatus: string,
     checkoutDeliveryType: "entrega" | "retirada" = "entrega"
-  ) => {
+  ): Promise<boolean> => {
     // Generate a unique, short, human-readable order token e.g., PED-0616-291
     const today = new Date();
     const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -1175,7 +1175,7 @@ export default function App() {
     // Supabase optional cloud upload
     if (supabaseClient) {
       try {
-        const enderecoDb = deliveryType === "retirada"
+        const enderecoDb = checkoutDeliveryType === "retirada"
           ? "Retirada no Balcão"
           : `${newOrder.rua}, ${newOrder.numero} - ${newOrder.bairro} (CEP: ${cep})`;
         const { data: insertedData, error: insertError } = await supabaseClient.from("clientes_pedidos").insert([
@@ -1190,20 +1190,30 @@ export default function App() {
           },
         ]).select();
 
-        if (!insertError && insertedData && insertedData.length > 0) {
-          const remoteId = insertedData[0].id?.toString();
-          if (remoteId) {
-            newOrder.gatewayId = remoteId;
-            setOrdersHistory(prev => prev.map(o => o.id === newOrder.id ? { ...o, gatewayId: remoteId } : o));
-            const saved = safeStorage.getItem("orders_history");
-            if (saved) {
-              try {
-                const parsed = JSON.parse(saved);
-                const updated = parsed.map((o: any) => o.id === newOrder.id ? { ...o, gatewayId: remoteId } : o);
-                safeStorage.setItem("orders_history", JSON.stringify(updated));
-              } catch (e) {
-                console.error("Erro ao atualizar localStorage no insert", e);
-              }
+        if (insertError) {
+          console.error("Erro Supabase insertError:", insertError);
+          showToast(`Falha ao gerar o pedido: ${insertError.message || "Erro no banco"}. Tente novamente.`, "error");
+          return false;
+        }
+
+        if (!insertedData || insertedData.length === 0) {
+          console.error("Nenhum dado retornado do Supabase no insert");
+          showToast("Falha ao gerar o pedido no servidor: Sem confirmação. Tente novamente.", "error");
+          return false;
+        }
+
+        const remoteId = insertedData[0].id?.toString();
+        if (remoteId) {
+          newOrder.gatewayId = remoteId;
+          setOrdersHistory(prev => prev.map(o => o.id === newOrder.id ? { ...o, gatewayId: remoteId } : o));
+          const saved = safeStorage.getItem("orders_history");
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              const updated = parsed.map((o: any) => o.id === newOrder.id ? { ...o, gatewayId: remoteId } : o);
+              safeStorage.setItem("orders_history", JSON.stringify(updated));
+            } catch (e) {
+              console.error("Erro ao atualizar localStorage no insert", e);
             }
           }
         }
@@ -1251,8 +1261,10 @@ export default function App() {
         
         if (hasChanges) setProdutos(prodsToUpdate);
 
-      } catch (err) {
-        console.error("Cloud sink failed, falling back safely:", err);
+      } catch (err: any) {
+        console.error("Cloud sink failed:", err);
+        showToast(`Erro ao enviar pedido para o servidor: ${err.message || "Erro de rede"}. Tente novamente.`, "error");
+        return false;
       }
     }
 
@@ -1352,6 +1364,8 @@ export default function App() {
     setTimeout(() => {
       window.location.href = link;
     }, 2000);
+
+    return true;
   };
 
   const handleAdvanceToCheckout = () => {

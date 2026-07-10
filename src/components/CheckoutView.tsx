@@ -54,7 +54,7 @@ interface CheckoutViewProps {
     paymentId: string,
     gatewayStatus: string,
     deliveryType?: "entrega" | "retirada"
-  ) => void;
+  ) => Promise<boolean>;
   onBackToMenu: () => void;
   showToast: (msg: string, type: "success" | "error") => void;
   onShowModal: (title: string, body: React.ReactNode, actions: React.ReactNode) => void;
@@ -93,6 +93,7 @@ export function CheckoutView({
   const [paymentMethod, setPaymentMethod] = useState<"Pix" | "Cartão" | "Maquininha" | "">("");
   const [cardType, setCardType] = useState<"Débito" | "Crédito" | "">("");
   const [calculatingRoute, setCalculatingRoute] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [lastProfileInfo, setLastProfileInfo] = useState("");
 
   // Auto fill details if user profile exists and auto-calculate delivery fee
@@ -169,6 +170,8 @@ export function CheckoutView({
   };
 
   const executeCheckoutSubmit = async () => {
+    if (submitting) return;
+
     if (!isStoreOpen(config.businessHours)) {
       showToast("Loja fechada. Não é possível realizar novos pedidos no momento.", "error");
       return;
@@ -338,9 +341,11 @@ export function CheckoutView({
                           if (sj.status === "approved" || sj.status === "authorized") {
                               showToast("Pagamento Pix recebido com sucesso!", "success");
                               onCloseModal();
-                              onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                              stopPolling();
-                              return;
+                              const success = await onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
+                              if (success) {
+                                  stopPolling();
+                                  return;
+                              }
                           } 
                       }
                   } catch (directErr) {
@@ -449,9 +454,9 @@ export function CheckoutView({
               </a>
 
               <button
-                onClick={() => {
+                onClick={async () => {
                   onCloseModal();
-                  onFinalizeOrder(
+                  await onFinalizeOrder(
                     name, phone, street, number, neighborhood, cep, reference, `Mercado Pago Checkout`, "Crédito", pId, "Aprovado", deliveryType
                   );
                 }}
@@ -469,20 +474,28 @@ export function CheckoutView({
       }
 
     } else if (paymentMethod === "Maquininha" || paymentMethod === "Maquininha na Entrega") {
-      onFinalizeOrder(
-        name,
-        phone,
-        street,
-        number,
-        neighborhood,
-        cep,
-        reference,
-        deliveryType === "retirada" ? "Pagar na Retirada (Balcão)" : "Maquininha na Entrega",
-        "",
-        "PAY-ON-DELIVERY",
-        "Pendente",
-        deliveryType
-      );
+      setSubmitting(true);
+      try {
+        await onFinalizeOrder(
+          name,
+          phone,
+          street,
+          number,
+          neighborhood,
+          cep,
+          reference,
+          deliveryType === "retirada" ? "Pagar na Retirada (Balcão)" : "Maquininha na Entrega",
+          "",
+          "PAY-ON-DELIVERY",
+          "Pendente",
+          deliveryType
+        );
+      } catch (err: any) {
+        console.error("Erro ao finalizar pedido offline:", err);
+        showToast(err.message || "Erro desconhecido ao finalizar pedido.", "error");
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -905,16 +918,18 @@ export function CheckoutView({
         )}
         <button
           onClick={executeCheckoutSubmit}
-          disabled={!isStoreOpen(config.businessHours) || (deliveryType === "entrega" && deliveryDistance !== null && config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance > config.maxDeliveryKm)}
+          disabled={submitting || !isStoreOpen(config.businessHours) || (deliveryType === "entrega" && deliveryDistance !== null && config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance > config.maxDeliveryKm)}
           className={`w-full font-black py-4 rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg ${
-            !isStoreOpen(config.businessHours)
+            submitting || !isStoreOpen(config.businessHours)
               ? "bg-stone-200 text-stone-400 cursor-not-allowed border border-stone-300"
               : (deliveryType === "entrega" && deliveryDistance !== null && config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance > config.maxDeliveryKm)
                 ? "bg-neutral-800 text-stone-500 cursor-not-allowed opacity-40 border border-neutral-700"
                 : "bg-[#FF3D00] hover:bg-[#E03600] text-[#FFFFFF] cursor-pointer"
           }`}
         >
-          {!isStoreOpen(config.businessHours) ? (
+          {submitting ? (
+            <span>Enviando Pedido...</span>
+          ) : !isStoreOpen(config.businessHours) ? (
             <span>Loja Fechada</span>
           ) : deliveryType === "entrega" && deliveryDistance !== null && config.maxDeliveryKm && config.maxDeliveryKm > 0 && deliveryDistance > config.maxDeliveryKm ? (
             <span>Fora da área de entrega (Máx. {config.maxDeliveryKm} km)</span>
