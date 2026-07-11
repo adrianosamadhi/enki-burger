@@ -94,12 +94,16 @@ export function CartSidebar({
                 </div>
                 {item.adicionais && item.adicionais.length > 0 && (
                   <div className="text-[10px] text-stone-500 mt-1 pl-2.5 space-y-0.5 border-l-2 border-stone-150 font-sans">
-                    {item.adicionais.map((addon) => (
-                      <div key={addon.id} className="flex justify-between items-center text-stone-500">
-                        <span>+ {addon.qtd}x {addon.nome}</span>
-                        <span>{formatBRL(addon.preco * addon.qtd * item.qtd)}</span>
-                      </div>
-                    ))}
+                    {item.adicionais.map((addon) => {
+                      const qty = addon.quantity ?? addon.qtd;
+                      const price = addon.price ?? addon.preco;
+                      return (
+                        <div key={addon.id} className="flex justify-between items-center text-stone-500">
+                          <span>+ {qty}x {addon.nome} (+ {formatBRL(price * qty)})</span>
+                          <span>{formatBRL(price * qty * item.qtd)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {item.observacoes && (

@@ -33,7 +33,11 @@ export const safeStorage = {
 };
 
 export function getCartItemSinglePrice(item: CartItem): number {
-  const addonsTotal = item.adicionais ? item.adicionais.reduce((sum, a) => sum + a.preco * a.qtd, 0) : 0;
+  const addonsTotal = item.adicionais ? item.adicionais.reduce((sum, a) => {
+    const price = a.price ?? a.preco;
+    const quantity = a.quantity ?? a.qtd;
+    return sum + price * quantity;
+  }, 0) : 0;
   return item.preco + addonsTotal;
 }
 

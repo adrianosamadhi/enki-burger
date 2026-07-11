@@ -32,7 +32,7 @@ export interface CartItem {
   observacoes: string;
   img?: string;
   isAddon?: boolean;
-  adicionais?: { id: string; nome: string; preco: number; qtd: number }[];
+  adicionais?: { id: string; nome: string; preco: number; qtd: number; price?: number; quantity?: number }[];
 }
 
 export interface StoreConfig {

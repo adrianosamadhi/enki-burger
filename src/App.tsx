@@ -988,6 +988,8 @@ export default function App() {
         nome: a.nome,
         preco: a.preco,
         qtd: selectedAddons[a.id] || 0,
+        price: a.preco,
+        quantity: selectedAddons[a.id] || 0,
       }));
 
     const addonKeyPart = addonsList
@@ -1139,7 +1141,11 @@ export default function App() {
       let addonText = "";
       if (item.adicionais && item.adicionais.length > 0) {
         addonText = item.adicionais
-          .map((a) => `\n   + ${a.qtd}x Adicional ${a.nome} (${formatBRL(a.preco)})`)
+          .map((a) => {
+            const qty = a.quantity ?? a.qtd;
+            const price = a.price ?? a.preco;
+            return `\n   + ${qty}x ${a.nome} (+ ${formatBRL(price * qty)})`;
+          })
           .join("");
       }
       const obs = item.observacoes ? `\n   *Obs:* _${item.observacoes}_` : "";
@@ -1544,13 +1550,17 @@ export default function App() {
       itemsHtml = o.detalhesEstruturados.map(item => {
         let addonHtml = "";
         if (item.adicionais && item.adicionais.length > 0) {
-          addonHtml = item.adicionais.map(a => `
-            <tr>
-              <td class="col-qtd"></td>
-              <td class="col-item text-sm">+${a.qtd}x ${a.nome}</td>
-              <td class="col-price text-sm">${formatBRL(a.preco)}</td>
-            </tr>
-          `).join("");
+          addonHtml = item.adicionais.map(a => {
+            const qty = a.quantity ?? a.qtd;
+            const price = a.price ?? a.preco;
+            return `
+              <tr>
+                <td class="col-qtd"></td>
+                <td class="col-item text-sm">- ${qty}x ${a.nome}</td>
+                <td class="col-price text-sm">(${formatBRL(price * qty)})</td>
+              </tr>
+            `;
+          }).join("");
         }
         const obsHtml = item.observacoes ? `
             <tr>
@@ -2903,12 +2913,16 @@ export default function App() {
                       {/* Addons summary */}
                       {item.adicionais && item.adicionais.length > 0 && (
                         <div className="text-[10px] text-stone-500 pl-3 py-1 bg-stone-100/40 rounded-xl space-y-0.5 border-l-2 border-stone-250 font-sans">
-                          {item.adicionais.map((a) => (
-                            <div key={a.id} className="flex justify-between items-center text-stone-500 pr-2">
-                              <span>+ {a.qtd}x Adicional {a.nome}</span>
-                              <span className="font-semibold">{formatBRL(a.preco * a.qtd * item.qtd)}</span>
-                            </div>
-                          ))}
+                          {item.adicionais.map((a) => {
+                            const qty = a.quantity ?? a.qtd;
+                            const price = a.price ?? a.preco;
+                            return (
+                              <div key={a.id} className="flex justify-between items-center text-stone-500 pr-2">
+                                <span>+ {qty}x {a.nome} (+ {formatBRL(price * qty)})</span>
+                                <span className="font-semibold">{formatBRL(price * qty * item.qtd)}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
