@@ -1144,7 +1144,10 @@ export default function App() {
           .map((a) => {
             const qty = a.quantity ?? a.qtd;
             const price = a.price ?? a.preco;
-            return `\n   + ${qty}x ${a.nome} (+ ${formatBRL(price * qty)})`;
+            const itemQty = item.qtd ?? (item as any).quantity ?? 1;
+            const totalQty = itemQty * qty;
+            const totalPrice = price * totalQty;
+            return `\n   + ${totalQty}x ${a.nome} (+ ${formatBRL(totalPrice)})`;
           })
           .join("");
       }
@@ -1553,11 +1556,14 @@ export default function App() {
           addonHtml = item.adicionais.map(a => {
             const qty = a.quantity ?? a.qtd;
             const price = a.price ?? a.preco;
+            const itemQty = item.qtd ?? (item as any).quantity ?? 1;
+            const totalQty = itemQty * qty;
+            const totalPrice = price * totalQty;
             return `
               <tr>
                 <td class="col-qtd"></td>
-                <td class="col-item text-sm">- ${qty}x ${a.nome}</td>
-                <td class="col-price text-sm">(${formatBRL(price * qty)})</td>
+                <td class="col-item text-sm">- ${totalQty}x ${a.nome}</td>
+                <td class="col-price text-sm">(${formatBRL(totalPrice)})</td>
               </tr>
             `;
           }).join("");
@@ -2916,10 +2922,12 @@ export default function App() {
                           {item.adicionais.map((a) => {
                             const qty = a.quantity ?? a.qtd;
                             const price = a.price ?? a.preco;
+                            const totalQty = qty * item.qtd;
+                            const totalPrice = price * totalQty;
                             return (
                               <div key={a.id} className="flex justify-between items-center text-stone-500 pr-2">
-                                <span>+ {qty}x {a.nome} (+ {formatBRL(price * qty)})</span>
-                                <span className="font-semibold">{formatBRL(price * qty * item.qtd)}</span>
+                                <span>+ {totalQty}x {a.nome} (+ {formatBRL(totalPrice)})</span>
+                                <span className="font-semibold">{formatBRL(totalPrice)}</span>
                               </div>
                             );
                           })}

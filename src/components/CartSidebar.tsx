@@ -97,10 +97,12 @@ export function CartSidebar({
                     {item.adicionais.map((addon) => {
                       const qty = addon.quantity ?? addon.qtd;
                       const price = addon.price ?? addon.preco;
+                      const totalQty = qty * item.qtd;
+                      const totalPrice = price * totalQty;
                       return (
                         <div key={addon.id} className="flex justify-between items-center text-stone-500">
-                          <span>+ {qty}x {addon.nome} (+ {formatBRL(price * qty)})</span>
-                          <span>{formatBRL(price * qty * item.qtd)}</span>
+                          <span>+ {totalQty}x {addon.nome} (+ {formatBRL(totalPrice)})</span>
+                          <span>{formatBRL(totalPrice)}</span>
                         </div>
                       );
                     })}

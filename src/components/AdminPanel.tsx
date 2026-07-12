@@ -219,16 +219,18 @@ export function ProductModalForm({
             
           if (error) throw error;
           
+          const uploadedPath = data?.path || fileName;
           const { data: urlData } = supabaseClient.storage
             .from("cardapio")
-            .getPublicUrl(fileName);
+            .getPublicUrl(uploadedPath);
             
           setImg(urlData.publicUrl);
           showToast("Imagem hospedada na nuvem com sucesso!", "success");
           return;
         } catch (err: any) {
           console.error("Erro no upload para storage: ", err);
-          showToast("Falha ao salvar no Supabase Storage. Usando modo backup.", "error");
+          const errorMsg = err?.message || err?.error_description || JSON.stringify(err);
+          showToast(`Erro no Storage: ${errorMsg}. Usando modo backup.`, "error");
         }
       }
 
@@ -591,22 +593,24 @@ export function AdminPanel({
           const extension = file.name.split('.').pop() || "png";
           const fileName = `logo_${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
           
-          const { error } = await supabaseClient.storage
+          const { data, error } = await supabaseClient.storage
             .from("cardapio")
             .upload(fileName, file, { upsert: true });
             
           if (error) throw error;
           
+          const uploadedPath = data?.path || fileName;
           const { data: urlData } = supabaseClient.storage
             .from("cardapio")
-            .getPublicUrl(fileName);
+            .getPublicUrl(uploadedPath);
             
           setCfgStoreLogoUrl(urlData.publicUrl);
           showToast("Logotipo hospedado na nuvem!", "success");
           return;
         } catch (err: any) {
           console.error("Erro no upload do logotipo: ", err);
-          showToast("Falha no cloud upload, inserindo em Base64...", "error");
+          const errorMsg = err?.message || err?.error_description || JSON.stringify(err);
+          showToast(`Erro no Storage (Logo): ${errorMsg}. Inserindo em Base64...`, "error");
         }
       }
 
