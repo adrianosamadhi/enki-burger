@@ -1,6 +1,11 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = 'https://amylompetctxeaeyioig.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFteWxvbXBldGN0eGVhZXlpb2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDc1ODAsImV4cCI6MjA5NTQ4MzU4MH0.KhQEC-EcfMQXiJ0KBg0nHM-1U1etJUHjIy524cVpKU4';
+const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
 async function startServer() {
   const app = express();
@@ -12,12 +17,14 @@ async function startServer() {
   // API Route for creating Pix payments or Preference links
   app.post("/api/checkout/mp", async (req, res) => {
     try {
-      const { paymentMethod, total, name, phone, email, storeName, mpAccessToken } = req.body;
+      const { paymentMethod, total, name, phone, email, storeName, mpAccessToken, orderId, notificationUrl } = req.body;
       
       const token = mpAccessToken?.trim();
       if (!token) {
         return res.status(400).json({ error: "Token Mercado Pago ausente" });
       }
+
+      const generatedNotificationUrl = notificationUrl || `https://${req.get('host')}/webhook/mercadopago`;
 
       if (paymentMethod === "Pix") {
         const names = (name || "").trim().split(" ");
@@ -39,7 +46,9 @@ async function startServer() {
               email: email || "compras@enkiburger.com.br",
               first_name: firstName,
               last_name: lastName
-            }
+            },
+            notification_url: generatedNotificationUrl,
+            external_reference: orderId
           })
         });
 
@@ -98,7 +107,9 @@ async function startServer() {
             payer: {
               email: email || "compras@enkiburger.com.br",
               name: name || "Cliente"
-            }
+            },
+            notification_url: generatedNotificationUrl,
+            external_reference: orderId
           })
         });
 
@@ -171,6 +182,72 @@ async function startServer() {
     } catch (err: any) {
       console.error("Polling status error:", err);
       return res.status(500).json({ error: err.message || "Erro ao consultar status." });
+    }
+  });
+
+  // POST Webhook endpoint for Mercado Pago automatic notifications (IPN)
+  app.post("/webhook/mercadopago", async (req, res) => {
+    try {
+      console.log("Mercado Pago Webhook payload:", JSON.stringify(req.body), JSON.stringify(req.query));
+
+      // Retrieve payment ID from webhook payload or query params
+      const paymentId = req.body.data?.id || req.body.id || req.query.id;
+      const type = req.body.type || req.body.action || req.query.topic;
+
+      // Ignore if no payment ID is present
+      if (!paymentId) {
+        return res.status(200).send("OK");
+      }
+
+      // We need the MP token to fetch payment details. Get it from the database 'loja_config'
+      const { data: configData, error: configError } = await supabaseClient
+        .from("loja_config")
+        .select("mp_access_token")
+        .eq("id", 1)
+        .maybeSingle();
+
+      const mpAccessToken = configData?.mp_access_token?.trim();
+      if (!mpAccessToken) {
+        console.error("Webhook Error: mp_access_token is missing in loja_config.");
+        return res.status(200).send("OK");
+      }
+
+      // Fetch payment details securely from Mercado Pago
+      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: {
+          "Authorization": `Bearer ${mpAccessToken}`
+        }
+      });
+
+      if (!mpResponse.ok) {
+        console.error(`Webhook Error: Failed to fetch MP details for payment ${paymentId}: ${mpResponse.status}`);
+        return res.status(200).send("OK");
+      }
+
+      const payment = await mpResponse.json();
+      const externalReference = payment.external_reference;
+      const status = payment.status;
+
+      console.log(`Webhook MP payment status for ID ${paymentId}: ${status}. Reference: ${externalReference}`);
+
+      if (externalReference && (status === "approved" || status === "authorized")) {
+        // Safe update in Supabase
+        const { error: updateError } = await supabaseClient
+          .from("clientes_pedidos")
+          .update({ gateway_status: "Aprovado" })
+          .eq("gateway_id", externalReference);
+
+        if (updateError) {
+          console.error(`Webhook Error updating order ${externalReference} status:`, updateError);
+        } else {
+          console.log(`Webhook Success: Order ${externalReference} successfully updated to Aprovado in Supabase.`);
+        }
+      }
+
+      return res.status(200).send("OK");
+    } catch (err: any) {
+      console.error("Webhook unexpected error:", err);
+      return res.status(200).send("OK");
     }
   });
 

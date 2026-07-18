@@ -26,7 +26,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, token, transaction_amount, description, payer, items, payment_id } = await req.json();
+    const { action, token, transaction_amount, description, payer, items, payment_id, notification_url, external_reference } = await req.json();
 
     if (!token) {
       return new Response(JSON.stringify({ error: "Token ausente" }), {
@@ -46,7 +46,9 @@ serve(async (req) => {
           transaction_amount,
           description,
           payment_method_id: "pix",
-          payer
+          payer,
+          notification_url,
+          external_reference
         })
       });
 
@@ -68,7 +70,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({ items, payer })
+        body: JSON.stringify({ items, payer, notification_url, external_reference })
       });
 
       const data = await response.json();

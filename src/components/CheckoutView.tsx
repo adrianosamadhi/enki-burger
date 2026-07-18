@@ -53,7 +53,8 @@ interface CheckoutViewProps {
     cardType: string,
     paymentId: string,
     gatewayStatus: string,
-    deliveryType?: "entrega" | "retirada"
+    deliveryType?: "entrega" | "retirada",
+    customOrderId?: string
   ) => Promise<boolean>;
   onBackToMenu: () => void;
   showToast: (msg: string, type: "success" | "error") => void;
@@ -220,10 +221,17 @@ export function CheckoutView({
       try {
         const mpAccessToken = config.mpAccessToken;
 
-        let pId;
-        let pixKey;
+        let pId: string;
+        let pixKey: string;
         let isSimulation = false;
         
+        // Pre-generate unique order token to bind with the payment reference
+        const today = new Date();
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const dd = String(today.getDate()).padStart(2, "0");
+        const randomSuffix = Math.floor(100 + Math.random() * 900);
+        const orderId = `PED-${mm}${dd}-${randomSuffix}`;
+
         try {
           const mpAccessToken = config.mpAccessToken;
           if (!mpAccessToken?.trim()) {
@@ -238,6 +246,8 @@ export function CheckoutView({
               token: mpAccessToken.trim(),
               transaction_amount: Number(Number(total).toFixed(2)),
               description: `Compra - ${config.storeName || "Enki Burger"}`,
+              notification_url: `${window.location.origin}/webhook/mercadopago`,
+              external_reference: orderId,
               payer: {
                 email: "compras@enkiburger.com.br",
                 first_name: names[0] || "Cliente",
@@ -254,12 +264,33 @@ export function CheckoutView({
             throw new Error(data.error);
           }
 
-          pId = data.paymentId || data.id;
+          pId = (data.paymentId || data.id)?.toString();
           pixKey = data.pixKey || data.point_of_interaction?.transaction_data?.qr_code;
           isSimulation = false;
         } catch (networkErr: any) {
           console.error("Mercado Pago fail:", networkErr);
           throw new Error(networkErr.message || "Falha na comunicação com o Mercado Pago.");
+        }
+
+        // 1. Immediately create the order in Supabase with status "Pendente"
+        const createdPending = await onFinalizeOrder(
+          name,
+          phone,
+          street,
+          number,
+          neighborhood,
+          cep,
+          reference,
+          "Pix",
+          "",
+          pId,
+          "Pendente",
+          deliveryType,
+          orderId
+        );
+
+        if (!createdPending) {
+          throw new Error("Falha ao inicializar o registro de pedido pendente no servidor.");
         }
 
         const handleCopyKey = () => {
@@ -313,59 +344,90 @@ export function CheckoutView({
           </div>
         );
 
-        let pollingInterval: any;
-        let isPolling = true;
+        let channel: any = null;
+        let isApproved = false;
 
-        const stopPolling = () => {
-          isPolling = false;
-          if (pollingInterval) clearTimeout(pollingInterval);
+        const cleanupListeners = () => {
+          if (channel) {
+            supabase.removeChannel(channel);
+          }
+          window.removeEventListener("visibilitychange", checkDatabaseStatus);
         };
 
-             const checkStatus = async () => {
-               if (!isPolling) return;
+        const handleSuccess = async () => {
+          if (isApproved) return;
+          isApproved = true;
+          cleanupListeners();
+          showToast("Pagamento Pix recebido com sucesso!", "success");
+          onCloseModal();
+          
+          // 2. Finalize the order with status "Aprovado", triggering the final success screen
+          await onFinalizeOrder(
+            name,
+            phone,
+            street,
+            number,
+            neighborhood,
+            cep,
+            reference,
+            "Pix",
+            "",
+            pId,
+            "Aprovado",
+            deliveryType,
+            orderId
+          );
+        };
 
-               let mpAccessToken = config.mpAccessToken?.trim();
-               
-               if (mpAccessToken) {
-                  try {
-                      const { data, error } = await supabase.functions.invoke("mercadopago", {
-                        body: {
-                          action: "check_status",
-                          payment_id: pId,
-                          token: mpAccessToken
-                        }
-                      });
-                      
-                      if (!error && data) {
-                          const sj = data;
-                          if (sj.status === "approved" || sj.status === "authorized") {
-                              showToast("Pagamento Pix recebido com sucesso!", "success");
-                              onCloseModal();
-                              const success = await onFinalizeOrder(name, phone, street, number, neighborhood, cep, reference, "Pix", "", pId, "Aprovado", deliveryType);
-                              if (success) {
-                                  stopPolling();
-                                  return;
-                              }
-                          } 
-                      }
-                  } catch (directErr) {
-                      console.error("Falha ao checar status do PIX via Edge Function:", directErr);
-                  }
-               }
+        const checkDatabaseStatus = async () => {
+          if (document.visibilityState === "visible") {
+            try {
+              const { data, error } = await supabase
+                .from("clientes_pedidos")
+                .select("gateway_status")
+                .eq("gateway_id", orderId)
+                .maybeSingle();
 
-               if (isPolling) {
-                   pollingInterval = setTimeout(checkStatus, 5000);
-               }
-             };
+              if (!error && data && (data.gateway_status === "Aprovado" || data.gateway_status === "Pago")) {
+                handleSuccess();
+              }
+            } catch (err) {
+              console.error("Erro ao verificar status do banco manualmente:", err);
+            }
+          }
+        };
 
-        // Start polling after 5 seconds
-        pollingInterval = setTimeout(checkStatus, 5000);
+        // Subscribe to real-time status updates on Supabase table clientes_pedidos
+        channel = supabase
+          .channel(`order-status-${orderId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "clientes_pedidos",
+              filter: `gateway_id=eq.${orderId}`,
+            },
+            (payload) => {
+              console.log("Realtime order update received:", payload);
+              if (
+                payload.new.gateway_status === "Aprovado" ||
+                payload.new.gateway_status === "Pago"
+              ) {
+                handleSuccess();
+              }
+            }
+          )
+          .subscribe();
+
+        // Check instantly when returning to the tab (safari / mobile chrome focus)
+        window.addEventListener("visibilitychange", checkDatabaseStatus);
 
         const actions = (
           <React.Fragment>
             <button
               onClick={() => {
-                stopPolling();
+                cleanupListeners();
                 onCloseModal();
               }}
               className="px-4 py-3 font-bold text-xs text-stone-500 hover:text-stone-700 bg-stone-100/50 hover:bg-stone-100 rounded-xl transition-colors font-sans w-full"

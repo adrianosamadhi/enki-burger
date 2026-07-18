@@ -1122,14 +1122,17 @@ export default function App() {
     cardType: string,
     paymentId: string,
     gatewayStatus: string,
-    checkoutDeliveryType: "entrega" | "retirada" = "entrega"
+    checkoutDeliveryType: "entrega" | "retirada" = "entrega",
+    customOrderId?: string
   ): Promise<boolean> => {
     // Generate a unique, short, human-readable order token e.g., PED-0616-291
-    const today = new Date();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const randomSuffix = Math.floor(100 + Math.random() * 900);
-    const orderId = `PED-${mm}${dd}-${randomSuffix}`;
+    const orderId = customOrderId || (() => {
+      const today = new Date();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      const randomSuffix = Math.floor(100 + Math.random() * 900);
+      return `PED-${mm}${dd}-${randomSuffix}`;
+    })();
     const items = Object.values(carrinho) as CartItem[];
     const subtotal = items.reduce((acc, item) => acc + getCartItemTotalPrice(item), 0);
     const actualFreight = checkoutDeliveryType === "retirada" ? 0 : (deliveryFee || 0);
@@ -1177,7 +1180,7 @@ export default function App() {
     };
 
     globalOrdersPromise = null;
-    const nextHistory = [newOrder, ...ordersHistory];
+    const nextHistory = [newOrder, ...ordersHistory.filter(o => o.id !== orderId)];
     setOrdersHistory(nextHistory);
     safeStorage.setItem("orders_history", JSON.stringify(nextHistory));
 
@@ -1187,7 +1190,7 @@ export default function App() {
         const enderecoDb = checkoutDeliveryType === "retirada"
           ? "Retirada no Balcão"
           : `${newOrder.rua}, ${newOrder.numero} - ${newOrder.bairro} (CEP: ${cep})`;
-        const { data: insertedData, error: insertError } = await supabaseClient.from("clientes_pedidos").insert([
+        const { data: insertedData, error: insertError } = await supabaseClient.from("clientes_pedidos").upsert([
           {
             nome: newOrder.nome,
             telefone: newOrder.telefone,
@@ -1197,7 +1200,7 @@ export default function App() {
             gateway_status: newOrder.gatewayStatus,
             gateway_id: newOrder.id,
           },
-        ]).select();
+        ], { onConflict: 'gateway_id' }).select();
 
         if (insertError) {
           console.error("Erro Supabase insertError:", insertError);
@@ -1275,6 +1278,10 @@ export default function App() {
         showToast(`Erro ao enviar pedido para o servidor: ${err.message || "Erro de rede"}. Tente novamente.`, "error");
         return false;
       }
+    }
+
+    if (gatewayStatus === "Pendente") {
+      return true;
     }
 
     // Redirect to whatsapp integration
