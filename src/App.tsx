@@ -145,6 +145,17 @@ export default function App() {
   });
   const permissaoAudio = useRef(safeStorage.getItem("enki_sound_alert") !== "false");
 
+  const autoPrintActiveRef = useRef(autoPrintActive);
+  const ordersHistoryRef = useRef(ordersHistory);
+
+  useEffect(() => {
+    autoPrintActiveRef.current = autoPrintActive;
+  }, [autoPrintActive]);
+
+  useEffect(() => {
+    ordersHistoryRef.current = ordersHistory;
+  }, [ordersHistory]);
+
   useEffect(() => {
     const unlockAudio = () => {
       if (permissaoAudio.current) {
@@ -443,21 +454,55 @@ export default function App() {
       .channel("realtime-orders-sync")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "clientes_pedidos" },
-        (payload: any) => {
-          showToast("Novo pedido recebido via site!", "success");
-          
-          // Executa o aviso sonoro se habilitado
-          if (permissaoAudio.current) {
-            const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
-            if (aud) {
-              aud.currentTime = 0;
-              aud.play().catch(error => console.log('Autoplay block:', error));
-            }
-          }
+        { event: "*", schema: "public", table: "clientes_pedidos" },
+        async (payload: any) => {
+          console.log("Realtime event received:", payload.eventType, payload.new);
+
+          const currentHistory = ordersHistoryRef.current;
+          const isAudioEnabled = permissaoAudio.current;
+          const isAutoPrintEnabled = autoPrintActiveRef.current;
+
+          const newRecord = payload.new;
+          if (!newRecord) return;
+
+          const orderId = newRecord.gateway_id;
+          const status = newRecord.gateway_status || "Pendente";
 
           // Sincroniza localmente o histórico do aplicativo
-          fetchRemoteOrders(supabaseClient);
+          await fetchRemoteOrders(supabaseClient, true);
+
+          const isApproved = status === "Aprovado" || status === "Pago";
+
+          if (isApproved) {
+            // Check if this order was already approved in our current local history
+            const existingOrder = currentHistory.find(o => o.id === orderId);
+            const wasAlreadyApproved = existingOrder && (existingOrder.gatewayStatus === "Aprovado" || existingOrder.gatewayStatus === "Pago");
+
+            if (!wasAlreadyApproved) {
+              showToast(`Pedido ${orderId} aprovado e confirmado!`, "success");
+
+              // Executa o aviso sonoro se habilitado
+              if (isAudioEnabled) {
+                const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
+                if (aud) {
+                  aud.currentTime = 0;
+                  aud.play().catch(error => console.log('Autoplay block:', error));
+                }
+              }
+
+              // Executa a impressão automática se habilitada
+              if (isAutoPrintEnabled) {
+                setTimeout(() => {
+                  printReceiptOutput(orderId);
+                }, 1000);
+              }
+            }
+          } else {
+            // For non-approved orders (e.g. Pendente INSERTs)
+            if (payload.eventType === "INSERT") {
+              showToast(`Novo pedido pendente recebido via site! (Aguardando Pagamento)`, "success");
+            }
+          }
         }
       )
       .subscribe();
