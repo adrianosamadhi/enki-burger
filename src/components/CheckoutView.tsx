@@ -246,7 +246,7 @@ export function CheckoutView({
               token: mpAccessToken.trim(),
               transaction_amount: Number(Number(total).toFixed(2)),
               description: `Compra - ${config.storeName || "Enki Burger"}`,
-              notification_url: `${window.location.origin}/webhook/mercadopago`,
+              notification_url: "https://amylompetctxeaeyioig.supabase.co/functions/v1/mercadopago",
               external_reference: orderId,
               payer: {
                 email: "compras@enkiburger.com.br",
@@ -453,6 +453,13 @@ export function CheckoutView({
         let initPoint = "";
         let isSimulation = false;
         
+        // Pre-generate unique order token to bind with the preference reference
+        const today = new Date();
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const dd = String(today.getDate()).padStart(2, "0");
+        const randomSuffix = Math.floor(100 + Math.random() * 900);
+        const orderId = `PED-${mm}${dd}-${randomSuffix}`;
+
         try {
           const mpAccessToken = config.mpAccessToken;
           if (!mpAccessToken?.trim()) {
@@ -463,6 +470,8 @@ export function CheckoutView({
             body: {
               action: "create_preference",
               token: mpAccessToken.trim(),
+              notification_url: "https://amylompetctxeaeyioig.supabase.co/functions/v1/mercadopago",
+              external_reference: orderId,
               items: [
                 {
                   title: `Compra - ${config.storeName || "Enki Burger"}`,
@@ -519,7 +528,7 @@ export function CheckoutView({
                 onClick={async () => {
                   onCloseModal();
                   await onFinalizeOrder(
-                    name, phone, street, number, neighborhood, cep, reference, `Mercado Pago Checkout`, "Crédito", pId, "Aprovado", deliveryType
+                    name, phone, street, number, neighborhood, cep, reference, `Mercado Pago Checkout`, "Crédito", pId, "Aprovado", deliveryType, orderId
                   );
                 }}
                 className="w-full mt-3 bg-[#FF3D00] hover:bg-[#E03600] text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md font-sans"

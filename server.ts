@@ -24,7 +24,7 @@ async function startServer() {
         return res.status(400).json({ error: "Token Mercado Pago ausente" });
       }
 
-      const generatedNotificationUrl = notificationUrl || `https://${req.get('host')}/webhook/mercadopago`;
+      const generatedNotificationUrl = notificationUrl || "https://amylompetctxeaeyioig.supabase.co/functions/v1/mercadopago";
 
       if (paymentMethod === "Pix") {
         const names = (name || "").trim().split(" ");
