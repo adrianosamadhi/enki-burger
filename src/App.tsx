@@ -470,6 +470,12 @@ export default function App() {
           const status = newRecord.gateway_status || "Pendente";
           const isApproved = status === "Aprovado" || status === "Pago";
 
+          // If the status is pending/awaiting payment, ignore the payload completely
+          if (status === "Pendente" || status === "Aguardando") {
+            console.log(`[Realtime Ignore] Pedido ${orderId} com status ${status} ignorado. Não atualiza o painel.`);
+            return;
+          }
+
           // Sincroniza localmente o histórico do aplicativo
           await fetchRemoteOrders(supabaseClient, true);
 
@@ -480,10 +486,6 @@ export default function App() {
               // Scenario 1: Order is created already approved (e.g. cash, card)
               shouldTriggerSoundAndPrint = true;
               showToast(`Novo pedido ${orderId} recebido e aprovado!`, "success");
-            } else {
-              // Pending INSERT (e.g. Pix created but not paid yet): STRICTLY zero sound and zero print
-              console.log(`[Realtime Ignore] Pedido pendente ${orderId} recebido. Zero som e zero impressão.`);
-              showToast(`Novo pedido pendente recebido via site! (Aguardando Pagamento)`, "success");
             }
           } else if (eventType === "UPDATE") {
             if (isApproved) {
@@ -634,6 +636,8 @@ export default function App() {
       globalOrdersPromise = client
         .from("clientes_pedidos")
         .select("*")
+        .neq("gateway_status", "Pendente")
+        .neq("gateway_status", "Aguardando")
         .order("created_at", { ascending: true });
     }
 
@@ -641,8 +645,9 @@ export default function App() {
       const { data, error } = await globalOrdersPromise;
       if (error) throw error;
       if (data) {
+        const filteredData = data.filter((item: any) => item.gateway_status !== "Pendente" && item.gateway_status !== "Aguardando");
         // Map and append to local order cache lists with dynamic sequence starting from 1
-        const mapped: Order[] = data.map((item: any, index: number) => ({
+        const mapped: Order[] = filteredData.map((item: any, index: number) => ({
           id: item.gateway_id || `PED-${index + 1}`,
           dataHora: new Date(item.created_at).toLocaleString("pt-BR"),
           nome: item.nome,

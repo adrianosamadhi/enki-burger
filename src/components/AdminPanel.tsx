@@ -545,6 +545,9 @@ export function AdminPanel({
   const filteredOrders = React.useMemo(() => {
     const now = new Date();
     return ordersHistory.filter(o => {
+      if (o.gatewayStatus === "Pendente" || o.gatewayStatus === "Aguardando") {
+        return false;
+      }
       const orderDate = parseDateBR(o.dataHora);
       const diffTime = Math.abs(now.getTime() - orderDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -566,6 +569,9 @@ export function AdminPanel({
   const pedidosDeHojeParaLista = React.useMemo(() => {
     const today = new Date();
     return ordersHistory.filter(o => {
+      if (o.gatewayStatus === "Pendente" || o.gatewayStatus === "Aguardando") {
+        return false;
+      }
       const orderDate = parseDateBR(o.dataHora);
       return (
         orderDate.getDate() === today.getDate() &&
