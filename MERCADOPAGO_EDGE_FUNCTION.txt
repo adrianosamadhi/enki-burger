@@ -149,6 +149,12 @@ serve(async (req) => {
         });
       }
 
+      if (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
+        console.log("[Supabase Auth] Utilizando SUPABASE_SERVICE_ROLE_KEY para ignorar políticas RLS (Admin Privileges).");
+      } else {
+        console.warn("[Supabase Auth] SUPABASE_SERVICE_ROLE_KEY não encontrada! Utilizando fallback da chave anônima.");
+      }
+
       const supabase = createClient(supabaseUrl, supabaseKey);
 
       // Fetch mp_access_token from loja_config
@@ -195,26 +201,84 @@ serve(async (req) => {
 
       console.log(`[Webhook MP] Status do pagamento ${paymentId}: ${status}. External Reference: ${externalReference}`);
 
-      if (externalReference && (status === "approved" || status === "authorized")) {
-        // Update order status in Supabase table
-        const { error: updateError } = await supabase
-          .from("clientes_pedidos")
-          .update({ gateway_status: "Aprovado" })
-          .eq("gateway_id", externalReference);
+      let updated = false;
 
-        if (updateError) {
-          console.error(`Erro ao atualizar o pedido ${externalReference} no Supabase:`, updateError);
-          return new Response(JSON.stringify({ error: "Failed to update order" }), {
-            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+      if (status === "approved" || status === "authorized") {
+        console.log(`[Webhook UPDATE] Iniciando atualizações de status para 'Aprovado' no banco de dados.`);
+
+        // Helper function to update status and/or gateway_status on a given column/value pair
+        const performUpdate = async (matchColumn: string, matchValue: any) => {
+          if (!matchValue) return false;
+          console.log(`[Webhook DB UPDATE] Tentando atualizar registro onde ${matchColumn} = '${matchValue}'...`);
+
+          try {
+            // Attempt A: Update both status and gateway_status to 'Aprovado'
+            console.log(`[Webhook DB UPDATE] Chamando .update({ status: 'Aprovado', gateway_status: 'Aprovado' }).eq('${matchColumn}', '${matchValue}')`);
+            const { data, error } = await supabase
+              .from("clientes_pedidos")
+              .update({ 
+                status: "Aprovado", 
+                gateway_status: "Aprovado" 
+              })
+              .eq(matchColumn, matchValue)
+              .select();
+
+            if (!error && data && data.length > 0) {
+              console.log(`[Webhook DB UPDATE SUCESSO] ${data.length} registro(s) atualizados com sucesso via ${matchColumn} = '${matchValue}' para status = 'Aprovado' e gateway_status = 'Aprovado'.`);
+              return true;
+            }
+
+            if (error) {
+              console.warn(`[Webhook DB UPDATE AVISO] Falha ao atualizar ambas as colunas via ${matchColumn}: ${error.message}. Tentando apenas gateway_status.`);
+              
+              // Attempt B (Fallback): Update only gateway_status
+              const fallbackRes = await supabase
+                .from("clientes_pedidos")
+                .update({ gateway_status: "Aprovado" })
+                .eq(matchColumn, matchValue)
+                .select();
+
+              if (!fallbackRes.error && fallbackRes.data && fallbackRes.data.length > 0) {
+                console.log(`[Webhook DB UPDATE SUCESSO - FALLBACK] ${fallbackRes.data.length} registro(s) atualizados via ${matchColumn} = '${matchValue}' para gateway_status = 'Aprovado'.`);
+                return true;
+              }
+            }
+          } catch (e: any) {
+            console.error(`[Webhook DB UPDATE EXCEÇÃO] Ocorreu uma exceção ao atualizar via ${matchColumn} = '${matchValue}':`, e.message);
+          }
+          return false;
+        };
+
+        // Strategy 1: Match gateway_id with externalReference (PED-...)
+        if (externalReference) {
+          updated = await performUpdate("gateway_id", externalReference);
         }
 
-        console.log(`[Webhook Sucesso] Pedido ${externalReference} atualizado com sucesso para 'Aprovado'.`);
+        // Strategy 2: Match id with externalReference
+        if (!updated && externalReference) {
+          updated = await performUpdate("id", externalReference);
+        }
+
+        // Strategy 3: Match gateway_id with paymentId from Mercado Pago
+        if (!updated && paymentId) {
+          updated = await performUpdate("gateway_id", paymentId);
+        }
+
+        // Strategy 4: Match id with paymentId from Mercado Pago
+        if (!updated && paymentId) {
+          updated = await performUpdate("id", paymentId);
+        }
+
+        if (updated) {
+          console.log(`[Webhook Sucesso] Pedido associado a externalReference '${externalReference}' / paymentId '${paymentId}' foi devidamente Aprovado.`);
+        } else {
+          console.error(`[Webhook Falha] Nenhum pedido pôde ser localizado ou atualizado no banco de dados para os identificadores fornecidos.`);
+        }
       } else {
-        console.log(`[Webhook] Nenhuma ação tomada. Status: ${status}, Referência: ${externalReference}`);
+        console.log(`[Webhook] Nenhuma ação de aprovação tomada. O status do pagamento no Mercado Pago é: ${status}`);
       }
 
-      return new Response(JSON.stringify({ success: true, paymentId, status, externalReference }), {
+      return new Response(JSON.stringify({ success: updated, paymentId, status, externalReference }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }

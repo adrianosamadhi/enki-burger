@@ -145,6 +145,68 @@ export default function App() {
   });
   const permissaoAudio = useRef(safeStorage.getItem("enki_sound_alert") !== "false");
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Instancia o elemento de áudio persistente que sobrevive a re-renders
+    const aud = new Audio("/alerta.mp3");
+    aud.loop = true;
+    aud.preload = "auto";
+    audioRef.current = aud;
+
+    return () => {
+      aud.pause();
+      aud.currentTime = 0;
+    };
+  }, []);
+
+  const playAudioAlerta = () => {
+    if (!permissaoAudio.current) {
+      console.log("[Audio] Permissão de áudio desativada. Não reproduzindo.");
+      return;
+    }
+    try {
+      console.log("[Audio] Iniciando reprodução com loop ativo.");
+      if (audioRef.current) {
+        audioRef.current.loop = true;
+        audioRef.current.play().catch(e => console.log("[Audio] Falha ao tocar áudio persistente:", e));
+      }
+      const domAud = document.getElementById('audio-alerta') as HTMLAudioElement;
+      if (domAud) {
+        domAud.loop = true;
+        domAud.play().catch(e => console.log("[Audio] Falha ao tocar áudio DOM:", e));
+      }
+    } catch (err) {
+      console.error("[Audio] Erro ao reproduzir alerta sonoro:", err);
+    }
+  };
+
+  const stopAudioAlerta = () => {
+    try {
+      console.log("[Audio] Parando reprodução de áudio e de alerta.");
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      const domAud = document.getElementById('audio-alerta') as HTMLAudioElement;
+      if (domAud) {
+        domAud.pause();
+        domAud.currentTime = 0;
+      }
+    } catch (err) {
+      console.error("[Audio] Erro ao parar alerta sonoro:", err);
+    }
+  };
+
+  const handleToggleAudioTest = () => {
+    const isPlaying = audioRef.current ? !audioRef.current.paused : false;
+    if (isPlaying) {
+      stopAudioAlerta();
+    } else {
+      playAudioAlerta();
+    }
+  };
+
   const autoPrintActiveRef = useRef(autoPrintActive);
   const ordersHistoryRef = useRef(ordersHistory);
 
@@ -159,16 +221,26 @@ export default function App() {
   useEffect(() => {
     const unlockAudio = () => {
       if (permissaoAudio.current) {
-        const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
-        if (aud) {
+        if (audioRef.current) {
+          const aud = audioRef.current;
           aud.muted = true;
           aud.play().then(() => {
             aud.pause();
             aud.currentTime = 0;
             aud.muted = false;
+          }).catch(e => console.log("[Audio] Unlock persistent audio failed:", e));
+        }
+
+        const domAud = document.getElementById('audio-alerta') as HTMLAudioElement;
+        if (domAud) {
+          domAud.muted = true;
+          domAud.play().then(() => {
+            domAud.pause();
+            domAud.currentTime = 0;
+            domAud.muted = false;
           }).catch(e => {
-            console.log("Audio unlock failed on interaction:", e);
-            aud.muted = false;
+            console.log("Audio unlock failed on interaction (DOM):", e);
+            domAud.muted = false;
           });
         }
       }
@@ -180,11 +252,7 @@ export default function App() {
   }, []);
 
   const printDirectDbOrder = (dbItem: any) => {
-    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
-    if (aud) {
-      aud.pause();
-      aud.currentTime = 0;
-    }
+    stopAudioAlerta();
 
     const orderId = dbItem.gateway_id || `PED-${dbItem.id || Math.floor(1000 + Math.random() * 9000)}`;
     const dataHora = dbItem.created_at ? new Date(dbItem.created_at).toLocaleString("pt-BR") : new Date().toLocaleString("pt-BR");
@@ -506,21 +574,15 @@ export default function App() {
           if (shouldTriggerSoundAndPrint) {
             // Executa o aviso sonoro se habilitado
             if (isAudioEnabled) {
-              const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
-              if (aud) {
-                console.log("[Audio] Iniciando som de notificação.");
-                aud.currentTime = 0;
-                aud.play().catch(error => console.log('Autoplay block on playback:', error));
-              } else {
-                console.warn("[Audio] Elemento de áudio não encontrado!");
-              }
+              console.log("[Audio] Novo pedido recebido! Disparando playAudioAlerta().");
+              playAudioAlerta();
             }
 
             // Executa a impressão automática se habilitada
             if (isAutoPrintEnabled) {
               console.log(`[Print] Iniciando impressão automática para o pedido ${orderId}.`);
               setTimeout(() => {
-                printReceiptOutput(orderId);
+                printReceiptOutput(orderId, false);
               }, 1000);
             }
           }
@@ -1642,11 +1704,9 @@ export default function App() {
     }
   };
 
-  const printReceiptOutput = (orderId: string) => {
-    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
-    if (aud) {
-      aud.pause();
-      aud.currentTime = 0;
+  const printReceiptOutput = (orderId: string, isManual = false) => {
+    if (isManual) {
+      stopAudioAlerta();
     }
 
     const o = ordersHistory.find((item) => item.id === orderId);
@@ -1752,11 +1812,7 @@ export default function App() {
   };
 
   const printTestOutput = () => {
-    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
-    if (aud) {
-      aud.pause();
-      aud.currentTime = 0;
-    }
+    stopAudioAlerta();
 
     const receipt = `
       <div class="receipt-container">
@@ -2220,9 +2276,10 @@ export default function App() {
                   setView("menu");
                   showToast("Sessão administrativa encerrada.", "success");
                 }}
-                onPrintOrder={printReceiptOutput}
+                onPrintOrder={(orderId) => printReceiptOutput(orderId, true)}
                 onDeleteOrder={handleDeleteOrder}
                 onPrintTest={printTestOutput}
+                onToggleAudioTest={handleToggleAudioTest}
                 showToast={showToast}
                 onShowModal={(title, body, actions) => setGeneralModal({ title, body, actions })}
                 onCloseModal={() => setGeneralModal(null)}
@@ -2240,26 +2297,15 @@ export default function App() {
                   if (val) {
                     permissaoAudio.current = true;
                     setAudioUnlocked(true);
-                    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
-                    if (aud) {
-                      aud.muted = true;
-                      aud.play().then(() => {
-                        aud.pause();
-                        aud.currentTime = 0;
-                        aud.muted = false;
-                      }).catch(e => {
-                        console.log("Autoplay block prime:", e);
-                        aud.muted = false;
-                      });
-                    }
+                    playAudioAlerta();
+                    // Stop playing after 1 second as a brief "beep" feedback test
+                    setTimeout(() => {
+                      stopAudioAlerta();
+                    }, 1000);
                   } else {
                     permissaoAudio.current = false;
                     setAudioUnlocked(false);
-                    const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
-                    if (aud) {
-                      aud.pause();
-                      aud.currentTime = 0;
-                    }
+                    stopAudioAlerta();
                   }
                   showToast(val ? "Sinal sonoro ativo (destravado)!" : "Sinal sonoro desativado.", "success");
                 }}
