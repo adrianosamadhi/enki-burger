@@ -2297,11 +2297,6 @@ export default function App() {
                   if (val) {
                     permissaoAudio.current = true;
                     setAudioUnlocked(true);
-                    playAudioAlerta();
-                    // Stop playing after 1 second as a brief "beep" feedback test
-                    setTimeout(() => {
-                      stopAudioAlerta();
-                    }, 1000);
                   } else {
                     permissaoAudio.current = false;
                     setAudioUnlocked(false);
