@@ -465,16 +465,17 @@ export default function App() {
           const newRecord = payload.new;
           if (!newRecord) return;
 
-          const orderId = newRecord.gateway_id;
-          const eventType = payload.eventType;
-          const status = newRecord.gateway_status || "Pendente";
-          const isApproved = status === "Aprovado" || status === "Pago";
-
-          // If the status is pending/awaiting payment, ignore the payload completely
-          if (status === "Pendente" || status === "Aguardando") {
-            console.log(`[Realtime Ignore] Pedido ${orderId} com status ${status} ignorado. Não atualiza o painel.`);
+          // Block any inserts/updates where status is Aguardando or Pendente
+          const recordStatus = newRecord.status || newRecord.gateway_status || "Pendente";
+          if (recordStatus === "Aguardando" || recordStatus === "Pendente" || newRecord.status === "Aguardando" || newRecord.status === "Pendente") {
+            console.log(`[Realtime Ignore] Novo pedido com status ${recordStatus} ignorado conforme regras estritas.`);
             return;
           }
+
+          const orderId = newRecord.gateway_id;
+          const eventType = payload.eventType;
+          const status = recordStatus;
+          const isApproved = status === "Aprovado" || status === "Pago";
 
           // Sincroniza localmente o histórico do aplicativo
           await fetchRemoteOrders(supabaseClient, true);
@@ -633,38 +634,69 @@ export default function App() {
 
   const fetchRemoteOrders = async (client: any, forceRefresh = false) => {
     if (!globalOrdersPromise || forceRefresh) {
-      globalOrdersPromise = client
-        .from("clientes_pedidos")
-        .select("*")
-        .neq("gateway_status", "Pendente")
-        .neq("gateway_status", "Aguardando")
-        .order("created_at", { ascending: true });
+      // First, try filtering by the 'status' column directly to strictly satisfy the user's requirement.
+      // If the schema only contains 'gateway_status', we fallback gracefully so as not to crash the interface.
+      try {
+        const testQuery = await client
+          .from("clientes_pedidos")
+          .select("*")
+          .neq("status", "Pendente")
+          .neq("status", "Aguardando")
+          .order("created_at", { ascending: true });
+        
+        if (!testQuery.error) {
+          globalOrdersPromise = Promise.resolve(testQuery);
+        } else {
+          globalOrdersPromise = client
+            .from("clientes_pedidos")
+            .select("*")
+            .neq("gateway_status", "Pendente")
+            .neq("gateway_status", "Aguardando")
+            .order("created_at", { ascending: true });
+        }
+      } catch {
+        globalOrdersPromise = client
+          .from("clientes_pedidos")
+          .select("*")
+          .neq("gateway_status", "Pendente")
+          .neq("gateway_status", "Aguardando")
+          .order("created_at", { ascending: true });
+      }
     }
 
     try {
       const { data, error } = await globalOrdersPromise;
       if (error) throw error;
       if (data) {
-        const filteredData = data.filter((item: any) => item.gateway_status !== "Pendente" && item.gateway_status !== "Aguardando");
+        // Enforce a strict double-layer frontend filter on both "status" and "gateway_status" fields
+        const filteredData = data.filter((item: any) => {
+          const itemStatus = item.status || item.gateway_status || "Aprovado";
+          return itemStatus !== "Pendente" && itemStatus !== "Aguardando" && item.status !== "Pendente" && item.status !== "Aguardando";
+        });
+
         // Map and append to local order cache lists with dynamic sequence starting from 1
-        const mapped: Order[] = filteredData.map((item: any, index: number) => ({
-          id: item.gateway_id || `PED-${index + 1}`,
-          dataHora: new Date(item.created_at).toLocaleString("pt-BR"),
-          nome: item.nome,
-          telefone: item.telefone,
-          rua: item.endereco ? (item.endereco.split("-")[0]?.trim() || "") : "",
-          numero: "",
-          bairro: "",
-          cep: "",
-          resumoItensString: item.pedido_detalhes,
-          total: item.total_pedido,
-          subtotal: item.total_pedido,
-          frete: 0,
-          pagamento: "Online",
-          gatewayId: item.id?.toString() || "",
-          gatewayStatus: item.gateway_status || "Aprovado",
-          detalhesEstruturados: [],
-        }));
+        const mapped: Order[] = filteredData.map((item: any, index: number) => {
+          const finalStatus = item.status || item.gateway_status || "Aprovado";
+          return {
+            id: item.gateway_id || `PED-${index + 1}`,
+            dataHora: new Date(item.created_at).toLocaleString("pt-BR"),
+            nome: item.nome,
+            telefone: item.telefone,
+            rua: item.endereco ? (item.endereco.split("-")[0]?.trim() || "") : "",
+            numero: "",
+            bairro: "",
+            cep: "",
+            resumoItensString: item.pedido_detalhes,
+            total: item.total_pedido,
+            subtotal: item.total_pedido,
+            frete: 0,
+            pagamento: "Online",
+            gatewayId: item.id?.toString() || "",
+            gatewayStatus: finalStatus,
+            status: finalStatus,
+            detalhesEstruturados: [],
+          };
+        });
         
         // Reverse so that the latest orders (highest numbers) are always shown at the top
         const reversed = [...mapped].reverse();

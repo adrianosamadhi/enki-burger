@@ -545,7 +545,7 @@ export function AdminPanel({
   const filteredOrders = React.useMemo(() => {
     const now = new Date();
     return ordersHistory.filter(o => {
-      if (o.gatewayStatus === "Pendente" || o.gatewayStatus === "Aguardando") {
+      if (o.status === "Pendente" || o.status === "Aguardando" || o.gatewayStatus === "Pendente" || o.gatewayStatus === "Aguardando") {
         return false;
       }
       const orderDate = parseDateBR(o.dataHora);
@@ -569,7 +569,7 @@ export function AdminPanel({
   const pedidosDeHojeParaLista = React.useMemo(() => {
     const today = new Date();
     return ordersHistory.filter(o => {
-      if (o.gatewayStatus === "Pendente" || o.gatewayStatus === "Aguardando") {
+      if (o.status === "Pendente" || o.status === "Aguardando" || o.gatewayStatus === "Pendente" || o.gatewayStatus === "Aguardando") {
         return false;
       }
       const orderDate = parseDateBR(o.dataHora);
@@ -997,12 +997,12 @@ export function AdminPanel({
                     </div>
                     <span
                       className={`text-[9px] px-2.5 py-0.5 rounded-full font-bold border capitalize ${
-                        o.gatewayStatus === "Aprovado"
+                        (o.status === "Aprovado" || o.gatewayStatus === "Aprovado" || o.status === "Pago" || o.gatewayStatus === "Pago")
                           ? "bg-emerald-50 border-emerald-100 text-emerald-700"
                           : "bg-amber-50 border-amber-100 text-amber-700"
                       }`}
                     >
-                      {o.gatewayStatus === "Aprovado" ? "Pago Online" : "Aguardando"}
+                      {(o.status === "Aprovado" || o.gatewayStatus === "Aprovado" || o.status === "Pago" || o.gatewayStatus === "Pago") ? "Pago Online" : "Aguardando"}
                     </span>
                   </div>
                   <div className="flex gap-2">

@@ -80,5 +80,6 @@ export interface Order {
   pagamento: string;
   gatewayId: string;
   gatewayStatus: string;
+  status?: string;
   detalhesEstruturados: CartItem[];
 }
