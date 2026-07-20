@@ -558,7 +558,7 @@ export function CheckoutView({
           deliveryType === "retirada" ? "Pagar na Retirada (Balcão)" : "Maquininha na Entrega",
           "",
           "PAY-ON-DELIVERY",
-          "Pendente",
+          "Aprovado",
           deliveryType
         );
       } catch (err: any) {

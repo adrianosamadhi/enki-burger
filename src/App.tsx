@@ -466,41 +466,59 @@ export default function App() {
           if (!newRecord) return;
 
           const orderId = newRecord.gateway_id;
+          const eventType = payload.eventType;
           const status = newRecord.gateway_status || "Pendente";
+          const isApproved = status === "Aprovado" || status === "Pago";
 
           // Sincroniza localmente o histórico do aplicativo
           await fetchRemoteOrders(supabaseClient, true);
 
-          const isApproved = status === "Aprovado" || status === "Pago";
+          let shouldTriggerSoundAndPrint = false;
 
-          if (isApproved) {
-            // Check if this order was already approved in our current local history
-            const existingOrder = currentHistory.find(o => o.id === orderId);
-            const wasAlreadyApproved = existingOrder && (existingOrder.gatewayStatus === "Aprovado" || existingOrder.gatewayStatus === "Pago");
+          if (eventType === "INSERT") {
+            if (isApproved) {
+              // Scenario 1: Order is created already approved (e.g. cash, card)
+              shouldTriggerSoundAndPrint = true;
+              showToast(`Novo pedido ${orderId} recebido e aprovado!`, "success");
+            } else {
+              // Pending INSERT (e.g. Pix created but not paid yet): STRICTLY zero sound and zero print
+              console.log(`[Realtime Ignore] Pedido pendente ${orderId} recebido. Zero som e zero impressão.`);
+              showToast(`Novo pedido pendente recebido via site! (Aguardando Pagamento)`, "success");
+            }
+          } else if (eventType === "UPDATE") {
+            if (isApproved) {
+              // Scenario 2: Order transitioned to Approved/Pago. Verify previous local history.
+              const existingOrder = currentHistory.find(o => o.id === orderId);
+              const wasAlreadyApproved = existingOrder && (existingOrder.gatewayStatus === "Aprovado" || existingOrder.gatewayStatus === "Pago");
 
-            if (!wasAlreadyApproved) {
-              showToast(`Pedido ${orderId} aprovado e confirmado!`, "success");
-
-              // Executa o aviso sonoro se habilitado
-              if (isAudioEnabled) {
-                const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
-                if (aud) {
-                  aud.currentTime = 0;
-                  aud.play().catch(error => console.log('Autoplay block:', error));
-                }
-              }
-
-              // Executa a impressão automática se habilitada
-              if (isAutoPrintEnabled) {
-                setTimeout(() => {
-                  printReceiptOutput(orderId);
-                }, 1000);
+              if (!wasAlreadyApproved) {
+                shouldTriggerSoundAndPrint = true;
+                showToast(`Pedido ${orderId} aprovado e pago com sucesso!`, "success");
+              } else {
+                console.log(`[Realtime Ignore] Pedido ${orderId} já estava aprovado anteriormente.`);
               }
             }
-          } else {
-            // For non-approved orders (e.g. Pendente INSERTs)
-            if (payload.eventType === "INSERT") {
-              showToast(`Novo pedido pendente recebido via site! (Aguardando Pagamento)`, "success");
+          }
+
+          if (shouldTriggerSoundAndPrint) {
+            // Executa o aviso sonoro se habilitado
+            if (isAudioEnabled) {
+              const aud = document.getElementById('audio-alerta') as HTMLAudioElement;
+              if (aud) {
+                console.log("[Audio] Iniciando som de notificação.");
+                aud.currentTime = 0;
+                aud.play().catch(error => console.log('Autoplay block on playback:', error));
+              } else {
+                console.warn("[Audio] Elemento de áudio não encontrado!");
+              }
+            }
+
+            // Executa a impressão automática se habilitada
+            if (isAutoPrintEnabled) {
+              console.log(`[Print] Iniciando impressão automática para o pedido ${orderId}.`);
+              setTimeout(() => {
+                printReceiptOutput(orderId);
+              }, 1000);
             }
           }
         }
